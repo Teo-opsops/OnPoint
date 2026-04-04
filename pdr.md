@@ -36,5 +36,8 @@ L'app è divisa verticalmente in due sezioni principali:
 - **Librerie**: SortableJS locale per il drag & drop avanzato e multi-selezione.
 - **Persistenza**: `localStorage` per il salvataggio automatico sul dispositivo.
 
+## 11. Risoluzione Problemi e Fix Noti
+- **GitHub Pages Deployment (Drag & Drop)**: Corretti i percorsi dei file per le librerie locali (come `Sortable.min.js`), rimuovendo i prefissi di cartell (es. `js/`) non validi per assicurare il corretto funzionamento del Drag & Drop su server case-sensitive e strict path come GitHub Pages.
+
 ---
 *Nota: Secondo la regola globale stabilita, questo file (pdr.md) verrà aggiornato in automatico con le nuove modifiche richieste alla fine di ogni iterazione.*
