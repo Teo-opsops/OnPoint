@@ -1,6 +1,9 @@
+// ══════════════════════════════════════════════════════════
+// OnPoint — App Logic (Notes-Style Rewrite)
+// ══════════════════════════════════════════════════════════
+
 const todoList = document.getElementById('todo-list');
 const willdoList = document.getElementById('willdo-list');
-const trashZone = document.getElementById('trash-zone');
 
 const addTodoBtn = document.getElementById('add-todo-btn');
 const addWilldoBtn = document.getElementById('add-willdo-btn');
@@ -9,373 +12,607 @@ const modal = document.getElementById('task-modal');
 const taskInput = document.getElementById('task-input');
 const cancelBtn = document.getElementById('cancel-btn');
 const saveBtn = document.getElementById('save-btn');
-const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
 
-let targetListForNewTask = 'todo'; 
+let targetListForNewTask = 'todo';
+let currentEditId = null;
 
 // Data store
 let tasks = {
   todo: [],
-  willdo: []
+  willdo: [],
+  deleted: []
 };
+try {
+  var savedTasks = localStorage.getItem('onPointTasks');
+  if (savedTasks) {
+    var parsed = JSON.parse(savedTasks);
+    tasks.todo = parsed.todo || [];
+    tasks.willdo = parsed.willdo || [];
+    tasks.deleted = parsed.deleted || [];
+  }
+} catch(e) {}
 
-// Selection Mode Manager
-function updateSelectionMode() {
-  const selectedCount = document.querySelectorAll('.task-wrapper.selected').length;
-  if (selectedCount > 0) {
-    document.body.classList.add('selection-mode');
+// === THEME & AMOLED ===
+var savedTheme = localStorage.getItem('onPointTheme') || 'white';
+var savedAmoled = localStorage.getItem('onPointAmoled');
+if (savedAmoled === null) savedAmoled = 'true';
+
+function applyTheme(theme) {
+  document.body.className = document.body.className.replace(/theme-\w+/g, '').trim();
+  document.body.classList.add('theme-' + theme);
+  savedTheme = theme;
+  localStorage.setItem('onPointTheme', theme);
+  var dots = document.querySelectorAll('.theme-dot');
+  dots.forEach(function(d) { d.classList.toggle('active', d.dataset.theme === theme); });
+}
+
+function applyAmoled(on) {
+  if (on) {
+    document.body.classList.add('amoled');
   } else {
-    document.body.classList.remove('selection-mode');
+    document.body.classList.remove('amoled');
+  }
+  localStorage.setItem('onPointAmoled', on ? 'true' : 'false');
+  var toggle = document.getElementById('amoled-toggle');
+  if (toggle) toggle.checked = on;
+}
+
+applyTheme(savedTheme);
+applyAmoled(savedAmoled === 'true');
+
+// Theme picker clicks
+document.addEventListener('DOMContentLoaded', function() {
+  var picker = document.getElementById('theme-picker');
+  if (picker) picker.addEventListener('click', function(e) {
+    var dot = e.target.closest('.theme-dot');
+    if (dot) applyTheme(dot.dataset.theme);
+  });
+  var aToggle = document.getElementById('amoled-toggle');
+  if (aToggle) aToggle.addEventListener('change', function() {
+    applyAmoled(this.checked);
+  });
+  applyTheme(savedTheme);
+});
+
+function saveState() {
+  var newTodo = [];
+  var newWilldo = [];
+
+  var todoNodes = todoList.children;
+  for (var i = 0; i < todoNodes.length; i++) {
+    if (todoNodes[i].classList.contains('sortable-ghost') || todoNodes[i].classList.contains('sortable-drag')) continue;
+    var textEl = todoNodes[i].querySelector('.task-text');
+    var itemEl = todoNodes[i].querySelector('.task-item');
+    if (!textEl || !itemEl) continue;
+    newTodo.push({
+      id: todoNodes[i].dataset.id,
+      text: textEl.textContent,
+      priority: itemEl.classList.contains('priority')
+    });
+  }
+
+  var willdoNodes = willdoList.children;
+  for (var i = 0; i < willdoNodes.length; i++) {
+    if (willdoNodes[i].classList.contains('sortable-ghost') || willdoNodes[i].classList.contains('sortable-drag')) continue;
+    var textEl = willdoNodes[i].querySelector('.task-text');
+    var itemEl = willdoNodes[i].querySelector('.task-item');
+    if (!textEl || !itemEl) continue;
+    newWilldo.push({
+      id: willdoNodes[i].dataset.id,
+      text: textEl.textContent,
+      priority: itemEl.classList.contains('priority')
+    });
+  }
+
+  tasks.todo = newTodo;
+  tasks.willdo = newWilldo;
+  localStorage.setItem('onPointTasks', JSON.stringify(tasks));
+  updateCounters();
+}
+
+function addToHistory(taskData) {
+  var data = JSON.parse(JSON.stringify(taskData));
+  data.deleted = true;
+  tasks.deleted.unshift(data);
+  if (tasks.deleted.length > 20) tasks.deleted.pop();
+  renderHistory();
+  saveState();
+}
+
+function renderHistory() {
+  var historyList = document.getElementById('history-list');
+  historyList.innerHTML = '';
+  tasks.deleted.forEach(function(task) {
+    historyList.appendChild(renderTask(task));
+  });
+}
+
+function rewindTask(id) {
+  var index = tasks.deleted.findIndex(function(t) { return t.id === id; });
+  if (index !== -1) {
+    var task = tasks.deleted.splice(index, 1)[0];
+    task.deleted = false;
+    tasks.todo.push(task);
+    renderAll();
+    saveState();
   }
 }
 
-// Render lists
+// === STATE MANAGEMENT (Android Back Button) ===
+let currentState = null;
+
+function pushAppState(stateName) {
+  if (currentState === stateName) return;
+  currentState = stateName;
+  history.pushState({ appState: stateName }, '');
+}
+
+window.onpopstate = function(event) {
+  var state = event.state ? event.state.appState : null;
+  currentState = state;
+
+  if (state !== 'history') {
+    document.getElementById('history-modal').classList.remove('visible');
+  }
+  if (state !== 'settings') {
+    document.getElementById('settings-modal').classList.remove('visible');
+  }
+  if (state !== 'search') {
+    var searchBar = document.getElementById('search-bar');
+    if (searchBar) {
+      searchBar.classList.remove('visible');
+      document.getElementById('search-input').blur();
+      document.body.classList.remove('searching');
+      document.querySelectorAll('.task-wrapper').forEach(function(w) { w.classList.remove('search-match'); });
+    }
+  }
+  if (state !== 'taskModal') {
+    document.getElementById('task-modal').classList.remove('visible');
+    taskInput.blur();
+  }
+};
+
+// === HISTORY ===
+function openHistory() {
+  document.getElementById('history-modal').classList.add('visible');
+  pushAppState('history');
+}
+function closeHistory() {
+  document.getElementById('history-modal').classList.remove('visible');
+  if (currentState === 'history') history.back();
+}
+document.getElementById('history-toggle').onclick = openHistory;
+document.getElementById('close-history-btn').onclick = closeHistory;
+
+// === SEARCH ===
+var searchBar = document.getElementById('search-bar');
+var searchInput = document.getElementById('search-input');
+
+function openSearch() {
+  searchBar.classList.add('visible');
+  pushAppState('search');
+  setTimeout(function() { searchInput.focus(); }, 100);
+}
+function closeSearch() {
+  searchBar.classList.remove('visible');
+  searchInput.value = '';
+  searchInput.blur();
+  document.body.classList.remove('searching');
+  document.querySelectorAll('.task-wrapper').forEach(function(w) { w.classList.remove('search-match'); });
+  if (currentState === 'search') history.back();
+}
+
+document.getElementById('search-toggle').onclick = openSearch;
+document.getElementById('search-close').onclick = closeSearch;
+
+searchInput.addEventListener('input', function(e) {
+  var term = e.target.value.toLowerCase().trim();
+  if (!term) {
+    document.body.classList.remove('searching');
+    document.querySelectorAll('.task-wrapper').forEach(function(w) { w.classList.remove('search-match'); });
+    return;
+  }
+  document.body.classList.add('searching');
+  document.querySelectorAll('.task-wrapper').forEach(function(w) {
+    var tText = w.querySelector('.task-text');
+    if (tText && tText.textContent.toLowerCase().includes(term)) {
+      w.classList.add('search-match');
+    } else {
+      w.classList.remove('search-match');
+    }
+  });
+});
+
+// === SETTINGS ===
+function openSettings() {
+  document.getElementById('settings-modal').classList.add('visible');
+  pushAppState('settings');
+}
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('visible');
+  if (currentState === 'settings') history.back();
+}
+document.getElementById('settings-toggle').onclick = openSettings;
+document.getElementById('close-settings-btn').onclick = closeSettings;
+
+// Settings: Export
+document.getElementById('settings-export').onclick = function() {
+  saveState();
+  var dataStr = JSON.stringify(tasks, null, 2);
+  var blob = new Blob([dataStr], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'onpoint_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+// Settings: Import
+document.getElementById('import-file-input').onchange = function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(event) {
+    try {
+      var imported = JSON.parse(event.target.result);
+      if (imported.todo && imported.willdo) {
+        tasks.todo = imported.todo;
+        tasks.willdo = imported.willdo;
+        tasks.deleted = imported.deleted || [];
+        localStorage.setItem('onPointTasks', JSON.stringify(tasks));
+        renderAll();
+        updateCounters();
+        closeSettings();
+      } else {
+        alert('File non valido.');
+      }
+    } catch (err) {
+      alert('Errore: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+};
+
+// Settings: Clear All
+document.getElementById('settings-clear').onclick = function() {
+  if (confirm('Sei sicuro? Questa azione cancellerà definitivamente TUTTE le tasks.')) {
+    tasks = { todo: [], willdo: [], deleted: [] };
+    localStorage.removeItem('onPointTasks');
+    renderAll();
+    closeSettings();
+  }
+};
+
+
+
+// ══════════════════════════════════════════════════════════
+// RENDER TASK — Notes-style swipe cards
+// ══════════════════════════════════════════════════════════
+
 function renderTask(task) {
-  const wrapper = document.createElement('div');
+  var wrapper = document.createElement('div');
   wrapper.className = 'task-wrapper';
   wrapper.dataset.id = task.id;
 
-  const bgLeft = document.createElement('div');
-  bgLeft.className = 'swipe-overlay-icon left';
-  bgLeft.innerHTML = '🗑️';
+  // Swipe background
+  var swipeBg = document.createElement('div');
+  swipeBg.className = 'swipe-bg';
+  var iconLeft = document.createElement('div');
+  iconLeft.className = 'icon-left';
+  iconLeft.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+  var iconRight = document.createElement('div');
+  iconRight.className = 'icon-right';
+  iconRight.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+  swipeBg.appendChild(iconLeft);
+  swipeBg.appendChild(iconRight);
 
-  const bgRight = document.createElement('div');
-  bgRight.className = 'swipe-overlay-icon right';
-  bgRight.innerHTML = '🗑️';
+  var div = document.createElement('div');
+  div.className = 'task-item' + (task.priority ? ' priority' : '');
 
-  const div = document.createElement('div');
-  div.className = `task-item ${task.priority ? 'priority' : ''}`;
 
-  const checkbox = document.createElement('div');
-  checkbox.className = 'selection-checkbox';
 
-  const priorityBtn = document.createElement('button');
+  var priorityBtn = document.createElement('button');
   priorityBtn.className = 'priority-btn';
-  // Gestione Priorità Multipla (o singola)
-  priorityBtn.onclick = (e) => {
+  priorityBtn.onclick = function(e) {
     e.stopPropagation();
     togglePriority(task.id, div, wrapper);
   };
 
-  const textSpan = document.createElement('span');
+  var textSpan = document.createElement('span');
   textSpan.className = 'task-text';
-  textSpan.textContent = task.text;
+  var escapedText = task.text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  textSpan.innerHTML = escapedText.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
 
-  const dragHandle = document.createElement('div');
-  dragHandle.className = 'drag-handle';
-  dragHandle.innerHTML = `
-    <svg width="14" height="28" viewBox="0 0 14 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M7 4L3 9H11L7 4Z" fill="currentColor"/>
-      <rect x="3" y="13" width="8" height="2" fill="currentColor"/>
-      <path d="M7 24L11 19H3L7 24Z" fill="currentColor"/>
-    </svg>
-  `;
+  var actionsDiv = document.createElement('div');
+  actionsDiv.className = 'task-actions';
 
-  div.appendChild(checkbox);
+  if (task.deleted) {
+    var rewindBtn = document.createElement('div');
+    rewindBtn.className = 'rewind-btn';
+    rewindBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>';
+    rewindBtn.onclick = function(e) {
+      e.stopPropagation();
+      rewindTask(task.id);
+    };
+
+    priorityBtn.style.display = 'none';
+  } else {
+    var editBtn = document.createElement('div');
+    editBtn.className = 'edit-btn';
+    editBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
+    editBtn.onclick = function(e) {
+      e.stopPropagation();
+      openEditModal(task.id);
+    };
+    actionsDiv.appendChild(editBtn);
+  }
+
   div.appendChild(priorityBtn);
   div.appendChild(textSpan);
-  div.appendChild(dragHandle);
+  div.appendChild(actionsDiv);
 
-  wrapper.appendChild(bgLeft);
-  wrapper.appendChild(bgRight);
+  wrapper.appendChild(swipeBg);
   wrapper.appendChild(div);
 
-  // === UNIFIED POINTER LOGIC ===
-  let pressTimer;
-  let startX = 0, startY = 0;
-  let currentX = 0;
-  let isPointerDown = false;
-  let isSwiping = false;
-  let longPressFired = false;
+  // === SWIPE TO DELETE (Notes-style) ===
+  if (!task.deleted) {
+    var startX = 0, startY = 0, currentX = 0;
+    var isPointerDown = false, isSwiping = false;
 
-  const getClientPos = (e) => {
-    return {
-      x: e.touches ? e.touches[0].clientX : e.clientX,
-      y: e.touches ? e.touches[0].clientY : e.clientY
-    };
-  };
-
-  const handlePointerDown = (e) => {
-    if (e.button !== undefined && e.button !== 0) return; 
-    if (e.target.closest('.drag-handle') || e.target.closest('.priority-btn') || e.target.closest('.selection-checkbox')) return;
-    
-    isPointerDown = true;
-    isSwiping = false;
-    longPressFired = false;
-    currentX = 0;
-
-    const pos = getClientPos(e);
-    startX = pos.x;
-    startY = pos.y;
-    
-    // Iniziamo long press (solo se non in selection mode)
-    if (!document.body.classList.contains('selection-mode')) {
-      pressTimer = setTimeout(() => {
-        longPressFired = true;
-        wrapper.classList.add('selected');
-        updateSelectionMode();
-        if (navigator.vibrate) navigator.vibrate(50);
-      }, 450);
-    }
-    
-    div.style.transition = 'none';
-    bgLeft.style.transform = 'translateY(-50%) scale(1)';
-    bgRight.style.transform = 'translateY(-50%) scale(1)';
-    bgLeft.style.opacity = '0';
-    bgRight.style.opacity = '0';
-  };
-
-  const handlePointerMove = (e) => {
-    if (!isPointerDown) return;
-    
-    const pos = getClientPos(e);
-    const deltaX = pos.x - startX;
-    const deltaY = pos.y - startY;
-
-    if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
-      clearTimeout(pressTimer);
+    function getPos(e) {
+      if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      return { x: e.clientX, y: e.clientY };
     }
 
-    if (!isSwiping && Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
-      isPointerDown = false; 
-      return; 
-    }
-
-    if (Math.abs(deltaX) > 15 && Math.abs(deltaX) > Math.abs(deltaY)) {
-      isSwiping = true;
-    }
-
-    if (isSwiping) {
-      if (e.type !== 'pointermove' && e.cancelable) e.preventDefault(); 
-      
-      currentX = deltaX;
-      div.style.transform = `translateX(${currentX}px)`;
-
-      // Il cestino appare dalla direzione in cui scorri
-      if (currentX > 0) {
-        // Scorro verso destra -> appare il cestino a destra
-        bgRight.style.opacity = Math.min(1, currentX / 50);
-        bgRight.style.transform = `translateY(-50%) scale(${currentX > 80 ? 1.25 : 1})`;
-        bgLeft.style.opacity = '0';
-      } else {
-        // Scorro verso sinistra -> appare il cestino a sinistra
-        bgLeft.style.opacity = Math.min(1, Math.abs(currentX) / 50);
-        bgLeft.style.transform = `translateY(-50%) scale(${currentX < -80 ? 1.25 : 1})`;
-        bgRight.style.opacity = '0';
-      }
-    }
-  };
-
-  const handlePointerUp = (e) => {
-    if (!isPointerDown) return;
-    isPointerDown = false;
-    clearTimeout(pressTimer);
-    
-    if (isSwiping) {
+    function onDown(e) {
+      if (e.button !== undefined && e.button !== 0) return;
+      if (e.target.closest('.priority-btn') || e.target.closest('.task-actions') || e.target.closest('a')) return;
+      isPointerDown = true;
       isSwiping = false;
-      div.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
-      
-      // SOGLIA RAGGIUNTA, PROCEDIAMO CON ELIMINAZIONE
-      if (Math.abs(currentX) > 100) {
-        
-        let targetWrappers = [wrapper];
-        if (wrapper.classList.contains('selected')) {
-           targetWrappers = Array.from(document.querySelectorAll('.task-wrapper.selected'));
-           if (!targetWrappers.includes(wrapper)) targetWrappers.push(wrapper);
-        }
-        
-        targetWrappers.forEach(w => {
-           const item = w.querySelector('.task-item');
-           if (item) {
-             item.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
-             item.style.opacity = '0';
-             item.style.transform = `translateX(${currentX > 0 ? window.innerWidth : -window.innerWidth}px)`;
-           }
-           w.classList.remove('selected');
-           
-           w.style.transition = 'height 0.3s ease, margin 0.3s ease, opacity 0.3s ease';
-           w.style.opacity = '0';
-           w.style.height = w.offsetHeight + 'px';
-           setTimeout(() => { w.style.height = '0px'; w.style.marginBottom = '0px'; }, 50);
-           
-           setTimeout(() => {
-             if (w.parentNode) w.parentNode.removeChild(w);
-           }, 350);
-        });
-        
-        setTimeout(() => updateSelectionMode(), 50);
+      currentX = 0;
+      var pos = getPos(e);
+      startX = pos.x;
+      startY = pos.y;
+      div.style.transition = 'none';
+    }
 
-      } else {
-        // Snap-back: ritorno allo stato normale
-        div.style.transform = '';
-        bgLeft.style.transform = 'translateY(-50%) scale(1)';
-        bgRight.style.transform = 'translateY(-50%) scale(1)';
-        bgLeft.style.opacity = '0';
-        bgRight.style.opacity = '0';
+    function onMove(e) {
+      if (!isPointerDown) return;
+      var pos = getPos(e);
+      var dx = pos.x - startX;
+      var dy = pos.y - startY;
+
+      // Determine gesture direction on first significant movement
+      if (!isDragging && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+        if (Math.abs(dy) > Math.abs(dx)) {
+          // Vertical movement -> user wants to scroll, abort our handling
+          isScrolling = true;
+          isPointerDown = false;
+          return;
+        }
+
+        // Horizontal movement -> it's a swipe, capture pointer now
+        isDragging = true;
+        isSwiping = true;
+        wrapper.classList.add('swiping');
+        try {
+          div.setPointerCapture(e.pointerId);
+          hasCapturedPointer = true;
+        } catch (err) {}
+      }
+
+      if (isSwiping) {
+        currentX = dx;
+        div.style.transform = 'translateX(' + currentX + 'px)';
+        
+        if (currentX > 0) {
+          var progress = Math.min(1, currentX / 100);
+          var iconScale = 0.8 + progress * 0.5;
+          iconLeft.style.opacity = Math.min(1, currentX / 40);
+          iconLeft.style.transform = 'scale(' + iconScale + ')';
+          iconRight.style.opacity = '0';
+          iconRight.style.transform = 'scale(0.8)';
+        } else {
+          var progress = Math.min(1, Math.abs(currentX) / 100);
+          var iconScale = 0.8 + progress * 0.5;
+          iconRight.style.opacity = Math.min(1, Math.abs(currentX) / 40);
+          iconRight.style.transform = 'scale(' + iconScale + ')';
+          iconLeft.style.opacity = '0';
+          iconLeft.style.transform = 'scale(0.8)';
+        }
       }
     }
-  };
 
-  div.addEventListener('click', (e) => {
-    if (longPressFired) return;
-    if (e.target.closest('.drag-handle') || e.target.closest('.priority-btn')) return;
-    
-    // Fallback: se siamo in selection mode applichiamo toggle. Altrimenti fa solo il focus o nulla (previsto HTML standard)
-    if (document.body.classList.contains('selection-mode')) {
-      wrapper.classList.toggle('selected');
-      updateSelectionMode();
+    function onUp(e) {
+      if (!isPointerDown) return;
+      isPointerDown = false;
+
+      if (isSwiping) {
+        if (Math.abs(currentX) > 80) {
+          div.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+          div.style.transform = 'translateX(' + (currentX > 0 ? 100 : -100) + '%)';
+          wrapper.style.transition = 'height 0.3s ease, margin 0.3s ease, opacity 0.3s ease';
+          
+          setTimeout(function() {
+            wrapper.style.height = '0px';
+            wrapper.style.opacity = '0';
+            wrapper.style.marginBottom = '0px';
+          }, 150);
+          
+          setTimeout(function() {
+            var targetWrappers = [wrapper];
+
+            for (var i = 0; i < targetWrappers.length; i++) {
+              var w = targetWrappers[i];
+              if (w.parentNode) {
+                var tId = w.dataset.id;
+                var taskData = tasks.todo.find(function(t) { return t.id === tId; }) || tasks.willdo.find(function(t) { return t.id === tId; });
+                if (taskData) addToHistory(taskData);
+                w.parentNode.removeChild(w);
+              }
+            }
+            saveState();
+          }, 450);
+        } else {
+          wrapper.classList.remove('swiping');
+          div.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+          div.style.transform = '';
+          iconLeft.style.opacity = '0';
+          iconLeft.style.transform = 'scale(0.8)';
+          iconRight.style.opacity = '0';
+          iconRight.style.transform = 'scale(0.8)';
+          setTimeout(function() { div.style.transition = ''; }, 300);
+        }
+      }
+      
+      currentX = 0;
+      isSwiping = false;
+      isDragging = false;
+      isScrolling = false;
     }
-  });
 
-  // Attach eventi combinati per Mouse e Touch
-  div.addEventListener('mousedown', handlePointerDown);
-  document.addEventListener('mousemove', handlePointerMove, { passive: false });
-  document.addEventListener('mouseup', handlePointerUp);
-  
-  div.addEventListener('touchstart', handlePointerDown, { passive: true });
-  div.addEventListener('touchmove', handlePointerMove, { passive: false });
-  div.addEventListener('touchend', handlePointerUp);
-  div.addEventListener('touchcancel', handlePointerUp);
+    div.addEventListener('mousedown', onDown);
+    document.addEventListener('mousemove', onMove, { passive: false });
+    document.addEventListener('mouseup', onUp);
+    div.addEventListener('touchstart', onDown, { passive: true });
+    div.addEventListener('touchmove', onMove, { passive: false });
+    div.addEventListener('touchend', onUp);
+    div.addEventListener('touchcancel', onUp);
+  }
 
   return wrapper;
 }
 
+// ══════════════════════════════════════════════════════════
+// RENDER, COUNTERS, MODALS
+// ══════════════════════════════════════════════════════════
+
 function renderAll() {
   todoList.innerHTML = '';
   willdoList.innerHTML = '';
-  
-  tasks.todo.forEach(task => {
-    todoList.appendChild(renderTask(task));
-  });
+  tasks.todo.forEach(function(task) { todoList.appendChild(renderTask(task)); });
+  tasks.willdo.forEach(function(task) { willdoList.appendChild(renderTask(task)); });
+  renderHistory();
+  updateCounters();
+}
 
-  tasks.willdo.forEach(task => {
-    willdoList.appendChild(renderTask(task));
-  });
+function updateCounters() {
+  document.getElementById('todo-counter').textContent = tasks.todo.length;
+  document.getElementById('willdo-counter').textContent = tasks.willdo.length;
+}
+
+function openEditModal(id) {
+  var task = tasks.todo.find(function(t) { return t.id === id; }) || tasks.willdo.find(function(t) { return t.id === id; });
+  if (!task) return;
+  currentEditId = id;
+  modalTitle.textContent = 'Modifica Task';
+  taskInput.value = task.text;
+  modal.classList.add('visible');
+  pushAppState('taskModal');
+  setTimeout(function() { taskInput.focus(); }, 100);
 }
 
 function togglePriority(id, element, parentWrapper) {
-  let task = tasks.todo.find(t => t.id === id) || tasks.willdo.find(t => t.id === id);
+  var task = tasks.todo.find(function(t) { return t.id === id; }) || tasks.willdo.find(function(t) { return t.id === id; });
   if (!task) return;
 
-  if (parentWrapper && parentWrapper.classList.contains('selected')) {
-     const selectedWrappers = document.querySelectorAll('.task-wrapper.selected');
-     const targetToPriority = !task.priority; 
-     
-     selectedWrappers.forEach(w => {
-        const tId = w.dataset.id;
-        const subTask = tasks.todo.find(t => t.id === tId) || tasks.willdo.find(t => t.id === tId);
-        if (subTask) {
-           subTask.priority = targetToPriority;
-           const subItem = w.querySelector('.task-item');
-           if (subItem) {
-               if (targetToPriority) subItem.classList.add('priority');
-               else subItem.classList.remove('priority');
-           }
-        }
-     });
-  } else {
-     task.priority = !task.priority;
-     if (task.priority) element.classList.add('priority');
-     else element.classList.remove('priority');
-  }
+  task.priority = !task.priority;
+  if (task.priority) element.classList.add('priority');
+  else element.classList.remove('priority');
+  
+  saveState();
 }
 
-addTodoBtn.onclick = () => openModal('todo');
-addWilldoBtn.onclick = () => openModal('willdo');
+addTodoBtn.onclick = function() { openModal('todo'); };
+addWilldoBtn.onclick = function() { openModal('willdo'); };
+
 cancelBtn.onclick = closeModal;
-modalOverlay.onclick = closeModal;
 
 function openModal(listType) {
   targetListForNewTask = listType;
-  modalTitle.textContent = listType === 'todo' ? 'Nuova Task - To Do' : 'Nuova Task - Will Do';
+  currentEditId = null;
+  modalTitle.textContent = listType === 'todo' ? 'Nuova Task — To Do' : 'Nuova Task — Will Do';
   taskInput.value = '';
   modal.classList.add('visible');
-  modal.classList.remove('hidden'); 
-  setTimeout(() => taskInput.focus(), 100);
+  pushAppState('taskModal');
+  setTimeout(function() { taskInput.focus(); }, 100);
 }
 
 function closeModal() {
   modal.classList.remove('visible');
+  taskInput.blur();
+  if (currentState === 'taskModal') history.back();
 }
 
 saveBtn.onclick = saveTask;
-taskInput.addEventListener('keypress', (e) => {
+taskInput.addEventListener('keypress', function(e) {
   if (e.key === 'Enter') saveTask();
 });
 
 function saveTask() {
-  const text = taskInput.value.trim();
+  var text = taskInput.value.trim();
   if (!text) return;
 
-  const newTask = {
-    id: Date.now().toString(),
-    text: text,
-    priority: false
-  };
-
-  tasks[targetListForNewTask].push(newTask);
-  
-  const listEl = targetListForNewTask === 'todo' ? todoList : willdoList;
-  listEl.appendChild(renderTask(newTask));
+  if (currentEditId) {
+    var task = tasks.todo.find(function(t) { return t.id === currentEditId; }) || tasks.willdo.find(function(t) { return t.id === currentEditId; });
+    if (task) {
+      task.text = text;
+      renderAll();
+    }
+  } else {
+    var newTask = { id: Date.now().toString(), text: text, priority: false };
+    tasks[targetListForNewTask].push(newTask);
+    var listEl = targetListForNewTask === 'todo' ? todoList : willdoList;
+    var newWrapper = renderTask(newTask);
+    newWrapper.classList.add('task-enter');
+    listEl.appendChild(newWrapper);
+    setTimeout(function() { newWrapper.classList.remove('task-enter'); }, 400);
+  }
+  saveState();
   closeModal();
 }
 
 renderAll();
 
-// SortableJS init protetto da try/catch per ambienti Android con restrizioni
+// === SORTABLE ===
 try {
   if (typeof Sortable !== 'undefined') {
-    const sortableOptions = {
+    var sortableOptions = {
       group: 'tasks',
       animation: 250,
-      handle: '.drag-handle',
-      multiDrag: true, 
-      multiDragKey: 'Shift',
-      selectedClass: 'selected', 
+      delay: 150,
+      delayOnTouchOnly: true,
+      fallbackTolerance: 3,
       easing: "cubic-bezier(1, 0, 0, 1)",
-      onStart: function (evt) {
-        trashZone.classList.add('visible');
-        if (navigator.vibrate) navigator.vibrate(50);
-      },
-      onEnd: function (evt) {
-        trashZone.classList.remove('visible');
+      scroll: true,
+      scrollSensitivity: 80,
+      scrollSpeed: 20,
+      bubbleScroll: true,
+      preventOnFilter: false,
+      onEnd: function(evt) {
+        saveState();
       }
     };
 
-    new Sortable(todoList, { ...sortableOptions });
-    new Sortable(willdoList, { ...sortableOptions });
-
-    new Sortable(trashZone, {
-      group: 'tasks',
-      ghostClass: 'sortable-ghost',
-      onAdd: function (evt) {
-        if (evt.items && evt.items.length > 0) {
-          evt.items.forEach(item => {
-            if(item.parentNode) item.parentNode.removeChild(item);
-          });
-        } else if(evt.item.parentNode) {
-          evt.item.parentNode.removeChild(evt.item);
-        }
-        trashZone.classList.remove('drag-over');
-        updateSelectionMode();
-      },
-      onChange: function(evt) {
-        trashZone.classList.add('drag-over');
-      },
-      onRemove: function(evt) {
-        trashZone.classList.remove('drag-over');
-      }
-    });
+    new Sortable(todoList, sortableOptions);
+    new Sortable(willdoList, sortableOptions);
   }
-} catch(e) {
-  console.warn('SortableJS not loaded: Drag & Drop could be limited.', e);
+} catch (e) {
+  console.warn('SortableJS not loaded', e);
 }
 
-trashZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    trashZone.classList.add('drag-over');
-});
-trashZone.addEventListener('dragleave', () => {
-    trashZone.classList.remove('drag-over');
-});
+// === SERVICE WORKER ===
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').then(function() {
+      console.log('ServiceWorker registrato.');
+    }, function(err) {
+      console.log('SW registration failed:', err);
+    });
+  });
+}
