@@ -1,12 +1,17 @@
-var CACHE_NAME = 'onpoint-cache-v1';
+var CACHE_NAME = 'onpoint-cache-v2';
 var urlsToCache = [
+  './',
   './index.html',
   './manifest.json',
-  './icon.png',
-  './js/Sortable.min.js'
+  './style.css',
+  './app.js',
+  './Sortable.min.js',
+  './icon.png'
 ];
 
+// Install event: cache initial assets
 self.addEventListener('install', function(event) {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(function(cache) {
@@ -15,15 +20,28 @@ self.addEventListener('install', function(event) {
   );
 });
 
+// Activate event: cleanup old caches
+self.addEventListener('activate', function(event) {
+  event.waitUntil(
+    caches.keys().then(function(cacheNames) {
+      return Promise.all(
+        cacheNames.map(function(cacheName) {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(function() {
+      return self.clients.claim();
+    })
+  );
+});
+
+// Fetch event: Network-First strategy
 self.addEventListener('fetch', function(event) {
   event.respondWith(
-    caches.match(event.request)
-      .then(function(response) {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      }
-    )
+    fetch(event.request).catch(function() {
+      return caches.match(event.request);
+    })
   );
 });

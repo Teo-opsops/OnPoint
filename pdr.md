@@ -3,7 +3,7 @@
 ## 1. Introduzione
 Questo documento funge da linea guida per la progettazione e lo sviluppo di **OnPoint**, un'applicazione web HTML per la gestione delle task (To-Do List). Questo file verrà aggiornato iterativamente ad ogni nuova richiesta per mantenere traccia delle funzionalità e delle specifiche dell'app.
 
-L'app implementa la **persistenza automatica dello stato** tramite salvataggio offline locale (`localStorage`), che salva e ricarica i task in tempo reale ogni volta che chiudi e riapri l'applicazione.
+L'app implementa la **persistenza automatica dello stato** tramite salvataggio offline locale (`IndexedDB` con fallback su `localStorage`), che salva e ricarica i task in tempo reale ogni volta che chiudi e riapri l'applicazione.
 
 ## 2. Obiettivi e Funzionalità
 - **Struttura dei Dati**: Le task devono essere rappresentate sotto forma di "blocchetti" visivi distinti.
@@ -44,8 +44,10 @@ L'app è divisa verticalmente in due sezioni principali:
 ## 8. Stack Tecnologico e Architettura
 - **Architettura a file separati**: HTML, CSS e JS in file distinti per manutenibilità.
 - **Nessuna libreria esterna**: L'app utilizza solo API native del browser (Pointer Events per lo swipe, localStorage per la persistenza).
-- **Persistenza**: `localStorage` per il salvataggio automatico sul dispositivo.
+- **Persistenza**: `IndexedDB` per il salvataggio automatico e duraturo sul dispositivo.
 - **PWA**: Service Worker e manifest per installazione come app.
+
+- **Migrazione IndexedDB**: Implementato un sistema asincrono basato su IndexedDB per memorizzare in modo permanente i task, prevenendone la cancellazione in caso di pulizia dei dati di navigazione dal browser.
 
 ---
 *Nota: Secondo la regola globale stabilita, questo file (pdr.md) verrà aggiornato in automatico con le nuove modifiche richieste alla fine di ogni iterazione.*

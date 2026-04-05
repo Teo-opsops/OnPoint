@@ -17,21 +17,104 @@ const modalTitle = document.getElementById('modal-title');
 let targetListForNewTask = 'todo';
 let currentEditId = null;
 
+// === INDEXEDDB DEFINITION ===
+const STORAGE_KEY = 'onPointTasks'; // legacy
+const IDB_NAME = 'OnPointLocalDB';
+const IDB_VERSION = 1;
+const IDB_STORE = 'appData';
+const IDB_DATA_KEY = 'tasks';
+
+let _db = null;
+
+function openDatabase() {
+  return new Promise(function (resolve, reject) {
+    if (_db) { resolve(_db); return; }
+    var request = indexedDB.open(IDB_NAME, IDB_VERSION);
+    request.onupgradeneeded = function (e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    request.onsuccess = function (e) {
+      _db = e.target.result;
+      resolve(_db);
+    };
+    request.onerror = function (e) {
+      console.warn('IndexedDB open error:', e.target.error);
+      reject(e.target.error);
+    };
+  });
+}
+
+function readFromIDB() {
+  return openDatabase().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(IDB_STORE, 'readonly');
+      var store = tx.objectStore(IDB_STORE);
+      var request = store.get(IDB_DATA_KEY);
+      request.onsuccess = function () { resolve(request.result || null); };
+      request.onerror = function () { reject(request.error); };
+    });
+  });
+}
+
+function writeToIDB(data) {
+  return openDatabase().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      var store = tx.objectStore(IDB_STORE);
+      var request = store.put(data, IDB_DATA_KEY);
+      request.onsuccess = function () { resolve(); };
+      request.onerror = function () { reject(request.error); };
+    });
+  });
+}
+
 // Data store
 let tasks = {
   todo: [],
   willdo: [],
   deleted: []
 };
-try {
-  var savedTasks = localStorage.getItem('onPointTasks');
-  if (savedTasks) {
-    var parsed = JSON.parse(savedTasks);
-    tasks.todo = parsed.todo || [];
-    tasks.willdo = parsed.willdo || [];
-    tasks.deleted = parsed.deleted || [];
-  }
-} catch(e) {}
+
+function loadData() {
+  return readFromIDB().then(function (data) {
+    if (data && data.todo && data.willdo) {
+      tasks.todo = data.todo;
+      tasks.willdo = data.willdo;
+      tasks.deleted = data.deleted || [];
+    } else {
+      // Legacy migration
+      try {
+        var savedTasks = localStorage.getItem(STORAGE_KEY);
+        if (savedTasks) {
+          var parsed = JSON.parse(savedTasks);
+          tasks.todo = parsed.todo || [];
+          tasks.willdo = parsed.willdo || [];
+          tasks.deleted = parsed.deleted || [];
+          
+          if (tasks.todo.length > 0 || tasks.willdo.length > 0) {
+            writeToIDB(tasks).then(function() {
+              localStorage.removeItem(STORAGE_KEY);
+            });
+          }
+        }
+      } catch(e) {}
+    }
+  }).catch(function() {
+    // Fallback
+    try {
+      var savedTasks = localStorage.getItem(STORAGE_KEY);
+      if (savedTasks) {
+        var parsed = JSON.parse(savedTasks);
+        tasks.todo = parsed.todo || [];
+        tasks.willdo = parsed.willdo || [];
+        tasks.deleted = parsed.deleted || [];
+      }
+    } catch(e) {}
+  });
+}
 
 // === THEME & AMOLED ===
 var savedTheme = localStorage.getItem('onPointTheme') || 'white';
@@ -107,7 +190,10 @@ function saveState() {
 
   tasks.todo = newTodo;
   tasks.willdo = newWilldo;
-  localStorage.setItem('onPointTasks', JSON.stringify(tasks));
+  // Write to IDB with fallback
+  writeToIDB(tasks).catch(function() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  });
   updateCounters();
 }
 
@@ -269,7 +355,9 @@ document.getElementById('import-file-input').onchange = function(e) {
         tasks.todo = imported.todo;
         tasks.willdo = imported.willdo;
         tasks.deleted = imported.deleted || [];
-        localStorage.setItem('onPointTasks', JSON.stringify(tasks));
+        writeToIDB(tasks).catch(function() {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+        });
         renderAll();
         updateCounters();
         closeSettings();
@@ -288,7 +376,9 @@ document.getElementById('import-file-input').onchange = function(e) {
 document.getElementById('settings-clear').onclick = function() {
   if (confirm('Sei sicuro? Questa azione cancellerà definitivamente TUTTE le tasks.')) {
     tasks = { todo: [], willdo: [], deleted: [] };
-    localStorage.removeItem('onPointTasks');
+    writeToIDB(tasks).catch(function() {
+      localStorage.removeItem(STORAGE_KEY);
+    });
     renderAll();
     closeSettings();
   }
@@ -589,15 +679,35 @@ function saveTask() {
   closeModal();
 }
 
-renderAll();
+loadData().then(function() {
+  renderAll();
+});
+
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().then(function(granted) {
+    if (granted) console.log("Storage is persistent.");
+  });
+}
 
 // === SERVICE WORKER ===
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('sw.js').then(function() {
-      console.log('ServiceWorker registrato.');
-    }, function(err) {
-      console.log('SW registration failed:', err);
-    });
+  var hadController = !!navigator.serviceWorker.controller;
+
+  navigator.serviceWorker.register('sw.js').then(function (registration) {
+    registration.update();
+    setInterval(function() {
+      registration.update();
+    }, 600000);
+  }).catch(function(err) {
+    console.warn('SW registration failed:', err);
   });
+
+  if (hadController) {
+    var refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+  }
 }
