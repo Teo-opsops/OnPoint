@@ -133,7 +133,13 @@ function rewindTask(id) {
   if (index !== -1) {
     var task = tasks.deleted.splice(index, 1)[0];
     task.deleted = false;
-    tasks.todo.push(task);
+    // Push the item to the list it belongs to, default to todo if undefined
+    var targetList = task.listType || 'todo';
+    if (tasks[targetList]) {
+      tasks[targetList].push(task);
+    } else {
+      tasks.todo.push(task);
+    }
     renderAll();
     saveState();
   }
@@ -339,6 +345,7 @@ function renderTask(task) {
       e.stopPropagation();
       rewindTask(task.id);
     };
+    actionsDiv.appendChild(rewindBtn);
 
     priorityBtn.style.display = 'none';
   } else {
@@ -362,30 +369,24 @@ function renderTask(task) {
   // === SWIPE TO DELETE (Notes-style) ===
   if (!task.deleted) {
     var startX = 0, startY = 0, currentX = 0;
-    var isPointerDown = false, isSwiping = false;
+    var isPointerDown = false, isSwiping = false, isDragging = false, isScrolling = false, hasCapturedPointer = false;
 
-    function getPos(e) {
-      if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      return { x: e.clientX, y: e.clientY };
-    }
-
-    function onDown(e) {
-      if (e.button !== undefined && e.button !== 0) return;
+    div.addEventListener('pointerdown', function(e) {
       if (e.target.closest('.priority-btn') || e.target.closest('.task-actions') || e.target.closest('a')) return;
       isPointerDown = true;
+      isDragging = false;
       isSwiping = false;
-      currentX = 0;
-      var pos = getPos(e);
-      startX = pos.x;
-      startY = pos.y;
-      div.style.transition = 'none';
-    }
+      isScrolling = false;
+      hasCapturedPointer = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      // Do NOT capture pointer here — allow native vertical scrolling
+    });
 
-    function onMove(e) {
-      if (!isPointerDown) return;
-      var pos = getPos(e);
-      var dx = pos.x - startX;
-      var dy = pos.y - startY;
+    div.addEventListener('pointermove', function(e) {
+      if (!isPointerDown || isScrolling) return;
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
 
       // Determine gesture direction on first significant movement
       if (!isDragging && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
@@ -409,80 +410,91 @@ function renderTask(task) {
       if (isSwiping) {
         currentX = dx;
         div.style.transform = 'translateX(' + currentX + 'px)';
-        
+        var iconLeft = swipeBg.querySelector('.icon-left');
+        var iconRight = swipeBg.querySelector('.icon-right');
         if (currentX > 0) {
           var progress = Math.min(1, currentX / 100);
           var iconScale = 0.8 + progress * 0.5;
-          iconLeft.style.opacity = Math.min(1, currentX / 40);
-          iconLeft.style.transform = 'scale(' + iconScale + ')';
-          iconRight.style.opacity = '0';
-          iconRight.style.transform = 'scale(0.8)';
+          if (iconLeft) {
+            iconLeft.style.opacity = Math.min(1, currentX / 40);
+            iconLeft.style.transform = 'scale(' + iconScale + ')';
+          }
+          if (iconRight) {
+            iconRight.style.opacity = '0';
+            iconRight.style.transform = 'scale(0.8)';
+          }
         } else {
           var progress = Math.min(1, Math.abs(currentX) / 100);
           var iconScale = 0.8 + progress * 0.5;
-          iconRight.style.opacity = Math.min(1, Math.abs(currentX) / 40);
-          iconRight.style.transform = 'scale(' + iconScale + ')';
-          iconLeft.style.opacity = '0';
-          iconLeft.style.transform = 'scale(0.8)';
+          if (iconRight) {
+            iconRight.style.opacity = Math.min(1, Math.abs(currentX) / 40);
+            iconRight.style.transform = 'scale(' + iconScale + ')';
+          }
+          if (iconLeft) {
+            iconLeft.style.opacity = '0';
+            iconLeft.style.transform = 'scale(0.8)';
+          }
         }
       }
-    }
+    });
 
-    function onUp(e) {
+    function handleRelease(e) {
       if (!isPointerDown) return;
       isPointerDown = false;
+
+      if (hasCapturedPointer) {
+        try { div.releasePointerCapture(e.pointerId); } catch (err) {}
+        hasCapturedPointer = false;
+      }
 
       if (isSwiping) {
         if (Math.abs(currentX) > 80) {
           div.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
           div.style.transform = 'translateX(' + (currentX > 0 ? 100 : -100) + '%)';
-          wrapper.style.transition = 'height 0.3s ease, margin 0.3s ease, opacity 0.3s ease';
-          
+          wrapper.style.transition = 'height 0.3s ease, opacity 0.3s ease, margin 0.3s ease';
           setTimeout(function() {
             wrapper.style.height = '0px';
             wrapper.style.opacity = '0';
             wrapper.style.marginBottom = '0px';
           }, 150);
-          
           setTimeout(function() {
-            var targetWrappers = [wrapper];
-
-            for (var i = 0; i < targetWrappers.length; i++) {
-              var w = targetWrappers[i];
-              if (w.parentNode) {
-                var tId = w.dataset.id;
-                var taskData = tasks.todo.find(function(t) { return t.id === tId; }) || tasks.willdo.find(function(t) { return t.id === tId; });
-                if (taskData) addToHistory(taskData);
-                w.parentNode.removeChild(w);
-              }
+            var tId = wrapper.dataset.id;
+            var listType = tasks.todo.some(function(t) { return t.id === tId; }) ? 'todo' : 'willdo';
+            var taskData = tasks.todo.find(function(t) { return t.id === tId; }) || tasks.willdo.find(function(t) { return t.id === tId; });
+            if (taskData) {
+              taskData.listType = listType;
+              addToHistory(taskData);
             }
+            if (wrapper.parentNode) wrapper.parentNode.removeChild(wrapper);
             saveState();
           }, 450);
         } else {
           wrapper.classList.remove('swiping');
           div.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
           div.style.transform = '';
-          iconLeft.style.opacity = '0';
-          iconLeft.style.transform = 'scale(0.8)';
-          iconRight.style.opacity = '0';
-          iconRight.style.transform = 'scale(0.8)';
+          var il = swipeBg.querySelector('.icon-left');
+          var ir = swipeBg.querySelector('.icon-right');
+          if (il) { il.style.opacity = '0'; il.style.transform = 'scale(0.8)'; }
+          if (ir) { ir.style.opacity = '0'; ir.style.transform = 'scale(0.8)'; }
           setTimeout(function() { div.style.transition = ''; }, 300);
         }
       }
-      
+
       currentX = 0;
       isSwiping = false;
       isDragging = false;
       isScrolling = false;
+      wrapper.classList.remove('swiping');
     }
 
-    div.addEventListener('mousedown', onDown);
-    document.addEventListener('mousemove', onMove, { passive: false });
-    document.addEventListener('mouseup', onUp);
-    div.addEventListener('touchstart', onDown, { passive: true });
-    div.addEventListener('touchmove', onMove, { passive: false });
-    div.addEventListener('touchend', onUp);
-    div.addEventListener('touchcancel', onUp);
+    div.addEventListener('pointerup', handleRelease);
+    div.addEventListener('pointercancel', handleRelease);
+
+    // Clear entry animation after it completes so JS transforms work for swiping
+    div.addEventListener('animationend', function () {
+      div.style.animation = 'none';
+      div.style.opacity = '1';
+    }, { once: true });
   }
 
   return wrapper;
@@ -578,33 +590,6 @@ function saveTask() {
 }
 
 renderAll();
-
-// === SORTABLE ===
-try {
-  if (typeof Sortable !== 'undefined') {
-    var sortableOptions = {
-      group: 'tasks',
-      animation: 250,
-      delay: 150,
-      delayOnTouchOnly: true,
-      fallbackTolerance: 3,
-      easing: "cubic-bezier(1, 0, 0, 1)",
-      scroll: true,
-      scrollSensitivity: 80,
-      scrollSpeed: 20,
-      bubbleScroll: true,
-      preventOnFilter: false,
-      onEnd: function(evt) {
-        saveState();
-      }
-    };
-
-    new Sortable(todoList, sortableOptions);
-    new Sortable(willdoList, sortableOptions);
-  }
-} catch (e) {
-  console.warn('SortableJS not loaded', e);
-}
 
 // === SERVICE WORKER ===
 if ('serviceWorker' in navigator) {

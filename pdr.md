@@ -21,30 +21,29 @@ L'app è divisa verticalmente in due sezioni principali:
 - **Top Bar**: Il titolo "Tasks" è scritto come "Notes" nella top bar (font 1.25rem, peso 600, colore accent).
 - **Tema di default bianco**: L'accent color di default è bianco (`#ffffff`), come nell'app Notes. Disponibili anche i temi Cyan, Emerald, Violet, Coral e Gold.
 - **Card/Blocchi task**: Le task sono stilizzate come le cartelle/note di Notes — card con background `bg-card`, bordo trasparente, border-radius 12px, padding 14px 16px, gap 2px tra le card (non 0.75rem).
-- **Testo delle task**: Font 0.95rem, weight 500, con text-overflow ellipsis — identico ai nomi delle note/cartelle in Notes.
-- **Eliminazione per scorrimento (swipe-to-delete)**: Niente barra colorata sotto. Lo sfondo dello swipe è trasparente con icona cestino che appare dalla direzione dello scorrimento, come nell'app Notes.
+- **Testo delle task**: Font 0.95rem, weight 500, con word-break attivato per mandare a capo i testi più lunghi (rispetto a un singolo rigo fisso), permettendo alla card di crescere in altezza secondo necessità.
+- **Eliminazione per scorrimento (swipe-to-delete)**: Implementazione identica all'app Notes. Lo sfondo dello swipe è trasparente con icona cestino bianca (colore `--accent`) che appare dalla direzione dello scorrimento. Il gesto utilizza Pointer Events con gestione corretta di `pointerdown`/`pointermove`/`pointerup`, cattura del pointer solo dopo aver determinato che il gesto è orizzontale (non verticale), e reset completo di tutti i flag di stato al termine del gesto. L'animazione di ingresso delle card viene neutralizzata con `animationend` + `opacity: 1` per consentire le trasformazioni JS.
 - **Add Buttons**: In cima alla lista sono presenti due pulsanti rettangolari ("To Do" e "Will Do") affiancati per aggiungere velocemente nuove task, in coerenza con la grafica originaria ma riadattati allo stile Notes.
 - **AMOLED Mode**: Background nero puro (#000000) di default con toggle (slider a pallino visibile) nelle impostazioni.
 - **Micro-animazioni**: Transizioni fluide con `slideUp` staggered per l'ingresso delle card.
 
 ## 5. Gestione Task
-- **Drag & Drop**: Possibilità di riordinare le task (verticalmente) all'interno o tra le sezioni trascinandole.
-- **Eliminazione Immediata**: Trascinando una task lateralmente oltre una certa soglia (~80px), la task viene eliminata istantaneamente e rimossa dalla lista con un'animazione di collasso verticale coerente con il design di Notes.
-- **Cronologia**: Possibilità di recuperare task eliminate di recente tramite modal dedicata.
+- **Riordino Task**: Il riordino manuale delle task è stato disabilitato per garantire il corretto funzionamento dello swipe-to-delete. SortableJS interferiva con gli eventi pointer necessari per il gesto di scorrimento orizzontale.
+- **Eliminazione Immediata**: Trascinando una task lateralmente oltre una certa soglia (~80px), la task viene eliminata istantaneamente e rimossa dalla lista con un'animazione di collasso verticale coerente con il design di Notes. Il pointer non viene catturato durante il `pointerdown` per non bloccare lo scroll nativo verticale; viene catturato solo nel `pointermove` quando il gesto è confermato come orizzontale.
+- **Cronologia**: Possibilità di recuperare task eliminate di recente tramite modal dedicata. Ogni task eliminata mostra un pulsante di ripristino (icona rewind) che la reinserisce nella lista originale (To Do o Will Do).
 
 ## 6. Personalizzazione
 - **Temi e Colore**: L'app supporta diversi temi (Cyan, Emerald, Violet, Coral, Gold, White). Il tema di default è White.
-- **Impostazioni**: Modale in stile Notes con card raggruppate, toggle switch per AMOLED, bottoni per export/import/cancella dati.
+- **Impostazioni**: Modale in stile Notes con card raggruppate, toggle switch per AMOLED. Bottoni "Esporta" (icona download) e "Importa" (icona upload) con testo minimale, e bottone "Cancella tutti i dati".
 
 ## 7. Struttura dei File
 - **`index.html`**: Struttura HTML con top-bar, content-area scrollabile, FAB, modali.
 - **`style.css`**: File CSS esterno con design system identico a Notes (variabili CSS, transizioni, layout).
-- **`app.js`**: Logica applicativa esterna (rendering, swipe, state management, Sortable).
-- **`Sortable.min.js`**: Libreria locale per il drag & drop.
+- **`app.js`**: Logica applicativa esterna (rendering, swipe-to-delete con Pointer Events, state management).
 
 ## 8. Stack Tecnologico e Architettura
 - **Architettura a file separati**: HTML, CSS e JS in file distinti per manutenibilità.
-- **Librerie**: SortableJS locale per il drag & drop avanzato e multi-selezione.
+- **Nessuna libreria esterna**: L'app utilizza solo API native del browser (Pointer Events per lo swipe, localStorage per la persistenza).
 - **Persistenza**: `localStorage` per il salvataggio automatico sul dispositivo.
 - **PWA**: Service Worker e manifest per installazione come app.
 

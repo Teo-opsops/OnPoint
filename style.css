@@ -191,7 +191,7 @@ body {
   padding: 0 20px;
   background: transparent;
   border-radius: var(--radius);
-  color: var(--danger);
+  color: var(--accent);
   z-index: 0;
   opacity: 0;
   pointer-events: none;
@@ -199,6 +199,7 @@ body {
 }
 .task-wrapper.swiping .swipe-bg {
   opacity: 1;
+  pointer-events: auto;
 }
 .swipe-bg .icon-left,
 .swipe-bg .icon-right {
@@ -221,7 +222,8 @@ body {
   position: relative;
   z-index: 1;
   transition: background var(--transition), border-color var(--transition), transform 0.3s ease, opacity 0.3s ease;
-  animation: slideUp 0.3s ease both;
+  animation: slideUp 0.3s ease backwards;
+  touch-action: pan-y;
 }
 .task-item:active {
   background: rgba(255, 255, 255, 0.08);
@@ -274,13 +276,17 @@ body {
   line-height: 1;
   transition: all 0.3s ease;
 }
-.priority-btn:hover::after {
+/* IMPORTANT: use active for immediate feedback instead of hover persistence, to match Notes/Mobile feel */
+.priority-btn:active::after {
   color: var(--priority-color);
 }
 .task-item.priority .priority-btn::after {
   content: '★';
   color: var(--priority-color);
   filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.5));
+}
+.task-item.priority .priority-btn:active::after {
+  opacity: 0.5;
 }
 
 /* ── Task Text ── */
@@ -289,13 +295,11 @@ body {
   font-size: 0.95rem;
   font-weight: 500;
   line-height: 1.4;
-  word-break: break-word;
+  word-break: break-word; /* Allows text to wrap when it's too long */
+  white-space: normal; /* Override previous nowrap to allow multiline */
   color: var(--text-primary);
   user-select: none;
   -webkit-user-select: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .task-text a {
   color: var(--accent);
@@ -308,6 +312,7 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 .edit-btn, .rewind-btn {
   display: flex;
