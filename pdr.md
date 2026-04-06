@@ -28,7 +28,7 @@ L'app è divisa verticalmente in due sezioni principali:
 - **Micro-animazioni**: Transizioni fluide con `slideUp` staggered per l'ingresso delle card.
 
 ## 5. Gestione Task
-- **Riordino Task**: Il riordino manuale delle task è stato disabilitato per garantire il corretto funzionamento dello swipe-to-delete. SortableJS interferiva con gli eventi pointer necessari per il gesto di scorrimento orizzontale.
+- **Riordino Task**: Le task ora possono essere riordinate tramite trascinamento (drag-and-drop) tenendole premute. È stata reintegrata la libreria SortableJS configurata con un ritardo (`delay: 400ms`) che attiva il trascinamento solo dopo la pressione prolungata, funzionando uniformemente sia con tocco che con mouse. Questo permette la pacifica convivenza con lo swipe-to-delete e lo scroll verticale.
 - **Eliminazione Immediata**: Trascinando una task lateralmente oltre una certa soglia (~80px), la task viene eliminata istantaneamente e rimossa dalla lista con un'animazione di collasso verticale coerente con il design di Notes. Il pointer non viene catturato durante il `pointerdown` per non bloccare lo scroll nativo verticale; viene catturato solo nel `pointermove` quando il gesto è confermato come orizzontale.
 - **Cronologia**: Possibilità di recuperare task eliminate di recente tramite modal dedicata. Ogni task eliminata mostra un pulsante di ripristino (icona rewind) che la reinserisce nella lista originale (To Do o Will Do).
 

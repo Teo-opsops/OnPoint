@@ -93,16 +93,16 @@ function loadData() {
           tasks.todo = parsed.todo || [];
           tasks.willdo = parsed.willdo || [];
           tasks.deleted = parsed.deleted || [];
-          
+
           if (tasks.todo.length > 0 || tasks.willdo.length > 0) {
-            writeToIDB(tasks).then(function() {
+            writeToIDB(tasks).then(function () {
               localStorage.removeItem(STORAGE_KEY);
             });
           }
         }
-      } catch(e) {}
+      } catch (e) { }
     }
-  }).catch(function() {
+  }).catch(function () {
     // Fallback
     try {
       var savedTasks = localStorage.getItem(STORAGE_KEY);
@@ -112,7 +112,7 @@ function loadData() {
         tasks.willdo = parsed.willdo || [];
         tasks.deleted = parsed.deleted || [];
       }
-    } catch(e) {}
+    } catch (e) { }
   });
 }
 
@@ -127,7 +127,7 @@ function applyTheme(theme) {
   savedTheme = theme;
   localStorage.setItem('onPointTheme', theme);
   var dots = document.querySelectorAll('.theme-dot');
-  dots.forEach(function(d) { d.classList.toggle('active', d.dataset.theme === theme); });
+  dots.forEach(function (d) { d.classList.toggle('active', d.dataset.theme === theme); });
 }
 
 function applyAmoled(on) {
@@ -145,14 +145,14 @@ applyTheme(savedTheme);
 applyAmoled(savedAmoled === 'true');
 
 // Theme picker clicks
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   var picker = document.getElementById('theme-picker');
-  if (picker) picker.addEventListener('click', function(e) {
+  if (picker) picker.addEventListener('click', function (e) {
     var dot = e.target.closest('.theme-dot');
     if (dot) applyTheme(dot.dataset.theme);
   });
   var aToggle = document.getElementById('amoled-toggle');
-  if (aToggle) aToggle.addEventListener('change', function() {
+  if (aToggle) aToggle.addEventListener('change', function () {
     applyAmoled(this.checked);
   });
   applyTheme(savedTheme);
@@ -191,7 +191,7 @@ function saveState() {
   tasks.todo = newTodo;
   tasks.willdo = newWilldo;
   // Write to IDB with fallback
-  writeToIDB(tasks).catch(function() {
+  writeToIDB(tasks).catch(function () {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
   });
   updateCounters();
@@ -209,13 +209,13 @@ function addToHistory(taskData) {
 function renderHistory() {
   var historyList = document.getElementById('history-list');
   historyList.innerHTML = '';
-  tasks.deleted.forEach(function(task) {
+  tasks.deleted.forEach(function (task) {
     historyList.appendChild(renderTask(task));
   });
 }
 
 function rewindTask(id) {
-  var index = tasks.deleted.findIndex(function(t) { return t.id === id; });
+  var index = tasks.deleted.findIndex(function (t) { return t.id === id; });
   if (index !== -1) {
     var task = tasks.deleted.splice(index, 1)[0];
     task.deleted = false;
@@ -240,7 +240,7 @@ function pushAppState(stateName) {
   history.pushState({ appState: stateName }, '');
 }
 
-window.onpopstate = function(event) {
+window.onpopstate = function (event) {
   var state = event.state ? event.state.appState : null;
   currentState = state;
 
@@ -256,7 +256,7 @@ window.onpopstate = function(event) {
       searchBar.classList.remove('visible');
       document.getElementById('search-input').blur();
       document.body.classList.remove('searching');
-      document.querySelectorAll('.task-wrapper').forEach(function(w) { w.classList.remove('search-match'); });
+      document.querySelectorAll('.task-wrapper').forEach(function (w) { w.classList.remove('search-match'); });
     }
   }
   if (state !== 'taskModal') {
@@ -284,29 +284,29 @@ var searchInput = document.getElementById('search-input');
 function openSearch() {
   searchBar.classList.add('visible');
   pushAppState('search');
-  setTimeout(function() { searchInput.focus(); }, 100);
+  setTimeout(function () { searchInput.focus(); }, 100);
 }
 function closeSearch() {
   searchBar.classList.remove('visible');
   searchInput.value = '';
   searchInput.blur();
   document.body.classList.remove('searching');
-  document.querySelectorAll('.task-wrapper').forEach(function(w) { w.classList.remove('search-match'); });
+  document.querySelectorAll('.task-wrapper').forEach(function (w) { w.classList.remove('search-match'); });
   if (currentState === 'search') history.back();
 }
 
 document.getElementById('search-toggle').onclick = openSearch;
 document.getElementById('search-close').onclick = closeSearch;
 
-searchInput.addEventListener('input', function(e) {
+searchInput.addEventListener('input', function (e) {
   var term = e.target.value.toLowerCase().trim();
   if (!term) {
     document.body.classList.remove('searching');
-    document.querySelectorAll('.task-wrapper').forEach(function(w) { w.classList.remove('search-match'); });
+    document.querySelectorAll('.task-wrapper').forEach(function (w) { w.classList.remove('search-match'); });
     return;
   }
   document.body.classList.add('searching');
-  document.querySelectorAll('.task-wrapper').forEach(function(w) {
+  document.querySelectorAll('.task-wrapper').forEach(function (w) {
     var tText = w.querySelector('.task-text');
     if (tText && tText.textContent.toLowerCase().includes(term)) {
       w.classList.add('search-match');
@@ -329,7 +329,7 @@ document.getElementById('settings-toggle').onclick = openSettings;
 document.getElementById('close-settings-btn').onclick = closeSettings;
 
 // Settings: Export
-document.getElementById('settings-export').onclick = function() {
+document.getElementById('settings-export').onclick = function () {
   saveState();
   var dataStr = JSON.stringify(tasks, null, 2);
   var blob = new Blob([dataStr], { type: 'application/json' });
@@ -344,18 +344,18 @@ document.getElementById('settings-export').onclick = function() {
 };
 
 // Settings: Import
-document.getElementById('import-file-input').onchange = function(e) {
+document.getElementById('import-file-input').onchange = function (e) {
   var file = e.target.files[0];
   if (!file) return;
   var reader = new FileReader();
-  reader.onload = function(event) {
+  reader.onload = function (event) {
     try {
       var imported = JSON.parse(event.target.result);
       if (imported.todo && imported.willdo) {
         tasks.todo = imported.todo;
         tasks.willdo = imported.willdo;
         tasks.deleted = imported.deleted || [];
-        writeToIDB(tasks).catch(function() {
+        writeToIDB(tasks).catch(function () {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
         });
         renderAll();
@@ -373,10 +373,10 @@ document.getElementById('import-file-input').onchange = function(e) {
 };
 
 // Settings: Clear All
-document.getElementById('settings-clear').onclick = function() {
+document.getElementById('settings-clear').onclick = function () {
   if (confirm('Sei sicuro? Questa azione cancellerà definitivamente TUTTE le tasks.')) {
     tasks = { todo: [], willdo: [], deleted: [] };
-    writeToIDB(tasks).catch(function() {
+    writeToIDB(tasks).catch(function () {
       localStorage.removeItem(STORAGE_KEY);
     });
     renderAll();
@@ -414,7 +414,7 @@ function renderTask(task) {
 
   var priorityBtn = document.createElement('button');
   priorityBtn.className = 'priority-btn';
-  priorityBtn.onclick = function(e) {
+  priorityBtn.onclick = function (e) {
     e.stopPropagation();
     togglePriority(task.id, div, wrapper);
   };
@@ -431,7 +431,7 @@ function renderTask(task) {
     var rewindBtn = document.createElement('div');
     rewindBtn.className = 'rewind-btn';
     rewindBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>';
-    rewindBtn.onclick = function(e) {
+    rewindBtn.onclick = function (e) {
       e.stopPropagation();
       rewindTask(task.id);
     };
@@ -442,7 +442,7 @@ function renderTask(task) {
     var editBtn = document.createElement('div');
     editBtn.className = 'edit-btn';
     editBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
-    editBtn.onclick = function(e) {
+    editBtn.onclick = function (e) {
       e.stopPropagation();
       openEditModal(task.id);
     };
@@ -461,7 +461,7 @@ function renderTask(task) {
     var startX = 0, startY = 0, currentX = 0;
     var isPointerDown = false, isSwiping = false, isDragging = false, isScrolling = false, hasCapturedPointer = false;
 
-    div.addEventListener('pointerdown', function(e) {
+    div.addEventListener('pointerdown', function (e) {
       if (e.target.closest('.priority-btn') || e.target.closest('.task-actions') || e.target.closest('a')) return;
       isPointerDown = true;
       isDragging = false;
@@ -473,8 +473,8 @@ function renderTask(task) {
       // Do NOT capture pointer here — allow native vertical scrolling
     });
 
-    div.addEventListener('pointermove', function(e) {
-      if (!isPointerDown || isScrolling) return;
+    div.addEventListener('pointermove', function (e) {
+      if (!isPointerDown || isScrolling || wrapper.classList.contains('sortable-drag') || wrapper.classList.contains('sortable-ghost')) return;
       var dx = e.clientX - startX;
       var dy = e.clientY - startY;
 
@@ -494,7 +494,7 @@ function renderTask(task) {
         try {
           div.setPointerCapture(e.pointerId);
           hasCapturedPointer = true;
-        } catch (err) {}
+        } catch (err) { }
       }
 
       if (isSwiping) {
@@ -533,7 +533,7 @@ function renderTask(task) {
       isPointerDown = false;
 
       if (hasCapturedPointer) {
-        try { div.releasePointerCapture(e.pointerId); } catch (err) {}
+        try { div.releasePointerCapture(e.pointerId); } catch (err) { }
         hasCapturedPointer = false;
       }
 
@@ -542,15 +542,15 @@ function renderTask(task) {
           div.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
           div.style.transform = 'translateX(' + (currentX > 0 ? 100 : -100) + '%)';
           wrapper.style.transition = 'height 0.3s ease, opacity 0.3s ease, margin 0.3s ease';
-          setTimeout(function() {
+          setTimeout(function () {
             wrapper.style.height = '0px';
             wrapper.style.opacity = '0';
             wrapper.style.marginBottom = '0px';
           }, 150);
-          setTimeout(function() {
+          setTimeout(function () {
             var tId = wrapper.dataset.id;
-            var listType = tasks.todo.some(function(t) { return t.id === tId; }) ? 'todo' : 'willdo';
-            var taskData = tasks.todo.find(function(t) { return t.id === tId; }) || tasks.willdo.find(function(t) { return t.id === tId; });
+            var listType = tasks.todo.some(function (t) { return t.id === tId; }) ? 'todo' : 'willdo';
+            var taskData = tasks.todo.find(function (t) { return t.id === tId; }) || tasks.willdo.find(function (t) { return t.id === tId; });
             if (taskData) {
               taskData.listType = listType;
               addToHistory(taskData);
@@ -566,7 +566,7 @@ function renderTask(task) {
           var ir = swipeBg.querySelector('.icon-right');
           if (il) { il.style.opacity = '0'; il.style.transform = 'scale(0.8)'; }
           if (ir) { ir.style.opacity = '0'; ir.style.transform = 'scale(0.8)'; }
-          setTimeout(function() { div.style.transition = ''; }, 300);
+          setTimeout(function () { div.style.transition = ''; }, 300);
         }
       }
 
@@ -597,8 +597,8 @@ function renderTask(task) {
 function renderAll() {
   todoList.innerHTML = '';
   willdoList.innerHTML = '';
-  tasks.todo.forEach(function(task) { todoList.appendChild(renderTask(task)); });
-  tasks.willdo.forEach(function(task) { willdoList.appendChild(renderTask(task)); });
+  tasks.todo.forEach(function (task) { todoList.appendChild(renderTask(task)); });
+  tasks.willdo.forEach(function (task) { willdoList.appendChild(renderTask(task)); });
   renderHistory();
   updateCounters();
 }
@@ -608,30 +608,56 @@ function updateCounters() {
   document.getElementById('willdo-counter').textContent = tasks.willdo.length;
 }
 
+// === SORTABLE INITIALIZATION ===
+var sortableOptions = {
+  group: 'tasks',
+  animation: 200,
+  delay: 400, // Standard long press duration (500ms is standard for web/iOS)
+  delayOnTouchOnly: false, // Apply delay to both mouse and touch, so swipe can execute
+  touchStartThreshold: 10, // Pixels to move before drag is cancelled on touch (allow slight wiggles during long press)
+  fallbackTolerance: 10, // Same thing for mouse movements
+  ghostClass: 'sortable-ghost',
+  dragClass: 'sortable-drag',
+  onStart: function (evt) {
+    if (window.navigator && window.navigator.vibrate) {
+      window.navigator.vibrate(50); // Haptic feedback on start
+    }
+  },
+  onEnd: function () {
+    saveState();
+  }
+};
+
+if (typeof Sortable !== 'undefined') {
+  Sortable.create(todoList, sortableOptions);
+  Sortable.create(willdoList, sortableOptions);
+}
+
+
 function openEditModal(id) {
-  var task = tasks.todo.find(function(t) { return t.id === id; }) || tasks.willdo.find(function(t) { return t.id === id; });
+  var task = tasks.todo.find(function (t) { return t.id === id; }) || tasks.willdo.find(function (t) { return t.id === id; });
   if (!task) return;
   currentEditId = id;
   modalTitle.textContent = 'Modifica Task';
   taskInput.value = task.text;
   modal.classList.add('visible');
   pushAppState('taskModal');
-  setTimeout(function() { taskInput.focus(); }, 100);
+  setTimeout(function () { taskInput.focus(); }, 100);
 }
 
 function togglePriority(id, element, parentWrapper) {
-  var task = tasks.todo.find(function(t) { return t.id === id; }) || tasks.willdo.find(function(t) { return t.id === id; });
+  var task = tasks.todo.find(function (t) { return t.id === id; }) || tasks.willdo.find(function (t) { return t.id === id; });
   if (!task) return;
 
   task.priority = !task.priority;
   if (task.priority) element.classList.add('priority');
   else element.classList.remove('priority');
-  
+
   saveState();
 }
 
-addTodoBtn.onclick = function() { openModal('todo'); };
-addWilldoBtn.onclick = function() { openModal('willdo'); };
+addTodoBtn.onclick = function () { openModal('todo'); };
+addWilldoBtn.onclick = function () { openModal('willdo'); };
 
 cancelBtn.onclick = closeModal;
 
@@ -642,7 +668,7 @@ function openModal(listType) {
   taskInput.value = '';
   modal.classList.add('visible');
   pushAppState('taskModal');
-  setTimeout(function() { taskInput.focus(); }, 100);
+  setTimeout(function () { taskInput.focus(); }, 100);
 }
 
 function closeModal() {
@@ -652,7 +678,7 @@ function closeModal() {
 }
 
 saveBtn.onclick = saveTask;
-taskInput.addEventListener('keypress', function(e) {
+taskInput.addEventListener('keypress', function (e) {
   if (e.key === 'Enter') saveTask();
 });
 
@@ -661,7 +687,7 @@ function saveTask() {
   if (!text) return;
 
   if (currentEditId) {
-    var task = tasks.todo.find(function(t) { return t.id === currentEditId; }) || tasks.willdo.find(function(t) { return t.id === currentEditId; });
+    var task = tasks.todo.find(function (t) { return t.id === currentEditId; }) || tasks.willdo.find(function (t) { return t.id === currentEditId; });
     if (task) {
       task.text = text;
       renderAll();
@@ -673,18 +699,18 @@ function saveTask() {
     var newWrapper = renderTask(newTask);
     newWrapper.classList.add('task-enter');
     listEl.appendChild(newWrapper);
-    setTimeout(function() { newWrapper.classList.remove('task-enter'); }, 400);
+    setTimeout(function () { newWrapper.classList.remove('task-enter'); }, 400);
   }
   saveState();
   closeModal();
 }
 
-loadData().then(function() {
+loadData().then(function () {
   renderAll();
 });
 
 if (navigator.storage && navigator.storage.persist) {
-  navigator.storage.persist().then(function(granted) {
+  navigator.storage.persist().then(function (granted) {
     if (granted) console.log("Storage is persistent.");
   });
 }
@@ -695,16 +721,16 @@ if ('serviceWorker' in navigator) {
 
   navigator.serviceWorker.register('sw.js').then(function (registration) {
     registration.update();
-    setInterval(function() {
+    setInterval(function () {
       registration.update();
     }, 600000);
-  }).catch(function(err) {
+  }).catch(function (err) {
     console.warn('SW registration failed:', err);
   });
 
   if (hadController) {
     var refreshing = false;
-    navigator.serviceWorker.addEventListener('controllerchange', function() {
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
       if (refreshing) return;
       refreshing = true;
       window.location.reload();
