@@ -1,4 +1,4 @@
-var CACHE_NAME = 'onpoint-cache-v2';
+var CACHE_NAME = 'onpoint-cache-v3';
 var urlsToCache = [
   './',
   './index.html',
@@ -37,11 +37,24 @@ self.addEventListener('activate', function(event) {
   );
 });
 
-// Fetch event: Network-First strategy
+// Fetch event: Network-First strategy with dynamic cache update
 self.addEventListener('fetch', function(event) {
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    fetch(event.request).catch(function() {
-      return caches.match(event.request);
-    })
+    // Bypassa la cache HTTP del browser per essere certi di avere l'ultima versione dal server
+    fetch(event.request, { cache: 'no-store' })
+      .then(function(response) {
+        // Se la chiamata ha successo, aggiorna la memoria del service worker
+        var responseClone = response.clone();
+        caches.open(CACHE_NAME).then(function(cache) {
+          cache.put(event.request, responseClone);
+        });
+        return response;
+      })
+      .catch(function() {
+        // Fallisce e usa la cache solo se c'è assenza di rete
+        return caches.match(event.request);
+      })
   );
 });

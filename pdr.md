@@ -45,7 +45,7 @@ L'app è divisa verticalmente in due sezioni principali:
 - **Architettura a file separati**: HTML, CSS e JS in file distinti per manutenibilità.
 - **Nessuna libreria esterna**: L'app utilizza solo API native del browser (Pointer Events per lo swipe, localStorage per la persistenza).
 - **Persistenza**: `IndexedDB` per il salvataggio automatico e duraturo sul dispositivo.
-- **PWA**: Service Worker e manifest per installazione come app.
+- **PWA**: Service Worker configurato con una strategia *Network-First* rigorosa (`cache: 'no-store'`), previene il caricamento di file stantii dalla cache HTTP del browser e assicura che l'app scarichi e si aggiorni immediatamente all'ultima versione ad ogni avvio online (gestendo contemporaneamente il fallback offline corretto ed aggiornando la cache dinamicamente).
 
 - **Migrazione IndexedDB**: Implementato un sistema asincrono basato su IndexedDB per memorizzare in modo permanente i task, prevenendone la cancellazione in caso di pulizia dei dati di navigazione dal browser.
 
