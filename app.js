@@ -612,15 +612,15 @@ function updateCounters() {
 var sortableOptions = {
   group: 'tasks',
   animation: 200,
-  delay: 400, // Standard long press duration (500ms is standard for web/iOS)
+  delay: 300, // Shortened long press duration
   delayOnTouchOnly: false, // Apply delay to both mouse and touch, so swipe can execute
   touchStartThreshold: 10, // Pixels to move before drag is cancelled on touch (allow slight wiggles during long press)
   fallbackTolerance: 10, // Same thing for mouse movements
   ghostClass: 'sortable-ghost',
   dragClass: 'sortable-drag',
-  onStart: function (evt) {
+  onChoose: function (evt) {
     if (window.navigator && window.navigator.vibrate) {
-      window.navigator.vibrate(50); // Haptic feedback on start
+      window.navigator.vibrate(50); // Haptic feedback strictly synchronized with end of delay
     }
   },
   onEnd: function () {
