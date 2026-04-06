@@ -161,15 +161,19 @@ document.addEventListener('DOMContentLoaded', function () {
 function saveState() {
   var newTodo = [];
   var newWilldo = [];
+  var seenIds = {};
 
   var todoNodes = todoList.children;
   for (var i = 0; i < todoNodes.length; i++) {
-    if (todoNodes[i].classList.contains('sortable-ghost') || todoNodes[i].classList.contains('sortable-drag')) continue;
+    var id = todoNodes[i].dataset.id;
+    if (!id || seenIds[id]) continue;
+    seenIds[id] = true;
+
     var textEl = todoNodes[i].querySelector('.task-text');
     var itemEl = todoNodes[i].querySelector('.task-item');
     if (!textEl || !itemEl) continue;
     newTodo.push({
-      id: todoNodes[i].dataset.id,
+      id: id,
       text: textEl.textContent,
       priority: itemEl.classList.contains('priority')
     });
@@ -177,12 +181,15 @@ function saveState() {
 
   var willdoNodes = willdoList.children;
   for (var i = 0; i < willdoNodes.length; i++) {
-    if (willdoNodes[i].classList.contains('sortable-ghost') || willdoNodes[i].classList.contains('sortable-drag')) continue;
+    var id = willdoNodes[i].dataset.id;
+    if (!id || seenIds[id]) continue;
+    seenIds[id] = true;
+
     var textEl = willdoNodes[i].querySelector('.task-text');
     var itemEl = willdoNodes[i].querySelector('.task-item');
     if (!textEl || !itemEl) continue;
     newWilldo.push({
-      id: willdoNodes[i].dataset.id,
+      id: id,
       text: textEl.textContent,
       priority: itemEl.classList.contains('priority')
     });
@@ -462,6 +469,7 @@ function renderTask(task) {
     var isPointerDown = false, isSwiping = false, isDragging = false, isScrolling = false, hasCapturedPointer = false;
 
     div.addEventListener('pointerdown', function (e) {
+      if (window.isSortableActive) return;
       if (e.target.closest('.priority-btn') || e.target.closest('.task-actions') || e.target.closest('a')) return;
       isPointerDown = true;
       isDragging = false;
@@ -474,6 +482,10 @@ function renderTask(task) {
     });
 
     div.addEventListener('pointermove', function (e) {
+      if (window.isSortableActive) {
+        if (isPointerDown) handleRelease(e);
+        return;
+      }
       if (!isPointerDown || isScrolling || wrapper.classList.contains('sortable-drag') || wrapper.classList.contains('sortable-ghost')) return;
       var dx = e.clientX - startX;
       var dy = e.clientY - startY;
@@ -619,12 +631,17 @@ var sortableOptions = {
   ghostClass: 'sortable-ghost',
   dragClass: 'sortable-drag',
   onChoose: function (evt) {
+    window.isSortableActive = true;
     if (window.navigator && window.navigator.vibrate) {
       window.navigator.vibrate(50); // Haptic feedback strictly synchronized with end of delay
     }
   },
+  onUnchoose: function (evt) {
+    window.isSortableActive = false;
+  },
   onEnd: function () {
-    saveState();
+    window.isSortableActive = false;
+    setTimeout(function() { saveState(); }, 50);
   }
 };
 
