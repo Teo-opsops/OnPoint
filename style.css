@@ -341,6 +341,13 @@ body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   z-index: 100;
 }
+/* Fallback ghost (forceFallback mode — JS-based drag clone) */
+.sortable-fallback {
+  opacity: 0.85 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius);
+  transform: scale(1.02);
+}
 
 
 /* ── Search Bar ── */

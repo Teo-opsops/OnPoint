@@ -621,26 +621,45 @@ function updateCounters() {
 }
 
 // === SORTABLE INITIALIZATION ===
+var sortableTouchMoveHandler = null;
+
 var sortableOptions = {
   group: 'tasks',
   animation: 200,
-  delay: 300, // Shortened long press duration
-  delayOnTouchOnly: false, // Apply delay to both mouse and touch, so swipe can execute
-  touchStartThreshold: 10, // Pixels to move before drag is cancelled on touch (allow slight wiggles during long press)
-  fallbackTolerance: 10, // Same thing for mouse movements
+  delay: 300,
+  delayOnTouchOnly: false,
+  touchStartThreshold: 10,
+  forceFallback: true,       // Use JS-based drag — prevents browser from hijacking touch
+  fallbackTolerance: 0,      // Start drag immediately after delay (no 10px dead zone)
+  fallbackOnBody: true,      // Append ghost to body to avoid clipping
   ghostClass: 'sortable-ghost',
   dragClass: 'sortable-drag',
+  fallbackClass: 'sortable-fallback',
   onChoose: function (evt) {
     window.isSortableActive = true;
     if (window.navigator && window.navigator.vibrate) {
-      window.navigator.vibrate(50); // Haptic feedback strictly synchronized with end of delay
+      window.navigator.vibrate(50);
     }
+    // Immediately block native scroll so the browser doesn't steal the touch
+    // This fills the gap between onChoose and when SortableJS sets its own preventDefault
+    sortableTouchMoveHandler = function(e) {
+      if (e.cancelable) e.preventDefault();
+    };
+    document.addEventListener('touchmove', sortableTouchMoveHandler, { passive: false });
   },
   onUnchoose: function (evt) {
     window.isSortableActive = false;
+    if (sortableTouchMoveHandler) {
+      document.removeEventListener('touchmove', sortableTouchMoveHandler);
+      sortableTouchMoveHandler = null;
+    }
   },
   onEnd: function () {
     window.isSortableActive = false;
+    if (sortableTouchMoveHandler) {
+      document.removeEventListener('touchmove', sortableTouchMoveHandler);
+      sortableTouchMoveHandler = null;
+    }
     setTimeout(function() { saveState(); }, 50);
   }
 };
