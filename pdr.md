@@ -24,7 +24,7 @@ L'app è divisa verticalmente in due sezioni principali:
 - **Testo delle task**: Font 0.95rem, weight 500, con word-break attivato per mandare a capo i testi più lunghi (rispetto a un singolo rigo fisso), permettendo alla card di crescere in altezza secondo necessità.
 - **Eliminazione per scorrimento (swipe-to-delete)**: Implementazione identica all'app Notes. Lo sfondo dello swipe è trasparente con icona cestino bianca (colore `--accent`) che appare dalla direzione dello scorrimento. Il gesto utilizza Pointer Events con gestione corretta di `pointerdown`/`pointermove`/`pointerup`, cattura del pointer solo dopo aver determinato che il gesto è orizzontale (non verticale), e reset completo di tutti i flag di stato al termine del gesto. L'animazione di ingresso delle card viene neutralizzata con `animationend` + `opacity: 1` per consentire le trasformazioni JS.
 - **Add Buttons**: In cima alla lista sono presenti due pulsanti rettangolari ("To Do" e "Will Do") affiancati per aggiungere velocemente nuove task, in coerenza con la grafica originaria ma riadattati allo stile Notes.
-- **AMOLED Mode**: Background nero puro (#000000) di default con toggle (slider a pallino visibile) nelle impostazioni.
+- **AMOLED Mode**: Background nero puro (#000000) di default con toggle (slider a pallino visibile) nelle impostazioni. Il tag `<body>` include la classe `amoled` direttamente nell'HTML per garantire lo sfondo nero puro (#000000) dal primo render/splash screen, evitando il flash della variante grigia (#121212) che si verificava quando la classe veniva applicata solo via JavaScript.
 - **Micro-animazioni**: Transizioni fluide con `slideUp` staggered per l'ingresso delle card.
 
 ## 5. Gestione Task
@@ -46,10 +46,10 @@ L'app è divisa verticalmente in due sezioni principali:
 ## 8. Stack Tecnologico e Architettura
 - **Architettura a file separati**: HTML, CSS e JS in file distinti per manutenibilità.
 - **Nessuna libreria esterna**: L'app utilizza solo API native del browser (Pointer Events per lo swipe, localStorage per la persistenza).
-- **Persistenza**: `IndexedDB` per il salvataggio automatico e duraturo sul dispositivo.
+- **Persistenza Offline e Cloud**:
+  - `IndexedDB` e `localStorage` (fallback) per il salvataggio automatico e duraturo sul dispositivo locale, previene cancellazioni indesiderate.
+  - Sincronizzazione in tempo reale e in background su **Google Drive** all'interno della cartella invisibile dell'App Data (`appDataFolder`). Il `google-sync.js` implementa un **merge ID-based per-task con timestamp `updatedAt`**: ogni singolo task viene confrontato individualmente tra locale e cloud, conservando sempre la versione più recente. Questo impedisce qualsiasi perdita di dati anche in caso di utilizzo simultaneo da più dispositivi. La risoluzione conflitti (modal interfaccia) viene mostrata al primo accesso quando i dati divergono.
 - **PWA**: Service Worker configurato con una strategia *Network-First* rigorosa (`cache: 'no-store'`), previene il caricamento di file stantii dalla cache HTTP del browser e assicura che l'app scarichi e si aggiorni immediatamente all'ultima versione ad ogni avvio online (gestendo contemporaneamente il fallback offline corretto ed aggiornando la cache dinamicamente).
-
-- **Migrazione IndexedDB**: Implementato un sistema asincrono basato su IndexedDB per memorizzare in modo permanente i task, prevenendone la cancellazione in caso di pulizia dei dati di navigazione dal browser.
 
 ---
 *Nota: Secondo la regola globale stabilita, questo file (pdr.md) verrà aggiornato in automatico con le nuove modifiche richieste alla fine di ogni iterazione.*

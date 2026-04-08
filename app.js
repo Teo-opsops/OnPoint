@@ -172,10 +172,18 @@ function saveState() {
     var textEl = todoNodes[i].querySelector('.task-text');
     var itemEl = todoNodes[i].querySelector('.task-item');
     if (!textEl || !itemEl) continue;
+    // Find the existing task to preserve or bump its updatedAt
+    var existingTask = tasks.todo.find(function(t) { return t.id === id; }) ||
+                       tasks.willdo.find(function(t) { return t.id === id; });
+    var oldText = existingTask ? existingTask.text : '';
+    var oldPriority = existingTask ? existingTask.priority : false;
+    var changed = !existingTask || oldText !== textEl.textContent || oldPriority !== itemEl.classList.contains('priority');
     newTodo.push({
       id: id,
       text: textEl.textContent,
-      priority: itemEl.classList.contains('priority')
+      priority: itemEl.classList.contains('priority'),
+      listType: 'todo',
+      updatedAt: changed ? new Date().toISOString() : (existingTask && existingTask.updatedAt ? existingTask.updatedAt : new Date().toISOString())
     });
   }
 
@@ -188,10 +196,17 @@ function saveState() {
     var textEl = willdoNodes[i].querySelector('.task-text');
     var itemEl = willdoNodes[i].querySelector('.task-item');
     if (!textEl || !itemEl) continue;
+    var existingTask2 = tasks.willdo.find(function(t) { return t.id === id; }) ||
+                        tasks.todo.find(function(t) { return t.id === id; });
+    var oldText2 = existingTask2 ? existingTask2.text : '';
+    var oldPriority2 = existingTask2 ? existingTask2.priority : false;
+    var changed2 = !existingTask2 || oldText2 !== textEl.textContent || oldPriority2 !== itemEl.classList.contains('priority');
     newWilldo.push({
       id: id,
       text: textEl.textContent,
-      priority: itemEl.classList.contains('priority')
+      priority: itemEl.classList.contains('priority'),
+      listType: 'willdo',
+      updatedAt: changed2 ? new Date().toISOString() : (existingTask2 && existingTask2.updatedAt ? existingTask2.updatedAt : new Date().toISOString())
     });
   }
 
@@ -202,6 +217,10 @@ function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
   });
   updateCounters();
+
+  if (typeof window.triggerAutoSync === 'function') {
+    window.triggerAutoSync();
+  }
 }
 
 function addToHistory(taskData) {
