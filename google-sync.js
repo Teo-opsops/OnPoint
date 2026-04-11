@@ -52,36 +52,51 @@ function clearTokenFromStorage() {
   localStorage.removeItem('onpointGoogleToken');
 }
 
-// ── Silent token refresh via GAPI iframe ──
-function silentRefreshViaGapi(email) {
-  return new Promise(function (resolve, reject) {
-    if (typeof gapi === 'undefined') return reject(new Error('GAPI not loaded'));
-    var authLoaded = false;
-    var loadTimeout = setTimeout(function () {
-      if (!authLoaded) reject(new Error('GAPI auth load timeout'));
-    }, 8000);
-
-    gapi.load('auth', {
-      callback: function () {
-        authLoaded = true;
-        clearTimeout(loadTimeout);
-        gapi.auth.authorize({
-          client_id: GOOGLE_CLIENT_ID,
-          scope: DRIVE_SCOPE + ' https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
-          immediate: true,
-          login_hint: email
-        }, function (authResult) {
-          if (authResult && !authResult.error && authResult.access_token) {
-            resolve({ access_token: authResult.access_token, expires_in: parseInt(authResult.expires_in) || 3600 });
-          } else {
-            reject(new Error(authResult ? authResult.error : 'Silent auth failed'));
-          }
-        });
-      },
-      onerror: function () {
-        clearTimeout(loadTimeout);
-        reject(new Error('Failed to load GAPI auth module'));
+// ── Pre-load GAPI Auth Module (eager, parallel with everything else) ──
+var _gapiAuthReady = null;
+function preloadGapiAuth() {
+  if (_gapiAuthReady) return _gapiAuthReady;
+  _gapiAuthReady = new Promise(function (resolve, reject) {
+    function doLoad() {
+      gapi.load('auth', { callback: resolve, onerror: function() { _gapiAuthReady = null; reject(); } });
+    }
+    if (typeof gapi !== 'undefined') {
+      doLoad();
+    } else {
+      var gapiScript = document.querySelector('script[src*="apis.google.com/js/api"]');
+      if (gapiScript) {
+        gapiScript.addEventListener('load', doLoad);
+      } else {
+        _gapiAuthReady = null;
+        reject(new Error('GAPI script not found'));
       }
+    }
+  });
+  return _gapiAuthReady;
+}
+preloadGapiAuth().catch(function() {});
+
+// ── Silent token refresh via pre-loaded GAPI ──
+function silentRefreshViaGapi(email) {
+  return preloadGapiAuth().then(function () {
+    return new Promise(function (resolve, reject) {
+      var authTimeout = setTimeout(function () {
+        reject(new Error('Silent auth timeout'));
+      }, 5000);
+
+      gapi.auth.authorize({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: DRIVE_SCOPE + ' https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+        immediate: true,
+        login_hint: email
+      }, function (authResult) {
+        clearTimeout(authTimeout);
+        if (authResult && !authResult.error && authResult.access_token) {
+          resolve({ access_token: authResult.access_token, expires_in: parseInt(authResult.expires_in) || 3600 });
+        } else {
+          reject(new Error(authResult ? authResult.error : 'Silent auth failed'));
+        }
+      });
     });
   });
 }
@@ -204,7 +219,6 @@ function showSignedInUI() {
   googleSignedOut.style.display = 'none'; googleSignedIn.style.display = '';
   if (googleUser) {
     profileName.textContent = googleUser.name || '';
-    profileEmail.textContent = googleUser.email || '';
     profileAvatar.src = googleUser.picture || '';
     profileAvatar.style.display = googleUser.picture ? '' : 'none';
   }
@@ -215,20 +229,49 @@ function showSignedOutUI() {
   updateSyncStatus('Non sincronizzato', '');
 }
 
-function updateSyncStatus(text, state) {
+function updateSyncStatus(text, st) {
   if (!syncStatusEl) return;
   syncStatusEl.textContent = text;
-  syncStatusEl.className = 'sync-status' + (state ? ' ' + state : '');
+  
+  let className = 'sync-status-compact';
+  if (st === 'syncing') className += ' syncing';
+  else if (st === 'success') className += ' success';
+  else if (st === 'error') className += ' error';
+  
+  syncStatusEl.className = className;
+  // Clear any inline colors
+  syncStatusEl.style.color = '';
 }
 
 // ── Drive helpers ──
 function ensureToken() {
   return new Promise(function (resolve, reject) {
-    if (googleAccessToken) {
-      var validToken = loadTokenFromStorage();
-      if (validToken) resolve(validToken);
-      else { googleAccessToken = null; reject(new Error('Token expired.')); }
-    } else reject(new Error('No token.'));
+    // 1. Check in-memory token via local expiry timestamp
+    var validToken = loadTokenFromStorage();
+    if (validToken) {
+      googleAccessToken = validToken;
+      resolve(validToken);
+      return;
+    }
+
+    // 2. Token expired or missing — attempt silent refresh
+    googleAccessToken = null;
+    if (googleUser && googleUser.email) {
+      silentRefreshViaGapi(googleUser.email)
+        .then(function (result) {
+          googleAccessToken = result.access_token;
+          saveTokenToStorage(result.access_token, result.expires_in || 3600);
+          schedulePredictiveTokenRefresh(result.expires_in || 3600);
+          console.log('OnPoint: token auto-refreshed during ensureToken');
+          resolve(result.access_token);
+        })
+        .catch(function (err) {
+          console.warn('OnPoint: silent refresh in ensureToken failed —', err.message);
+          reject(new Error('Token scaduto. Tocca Sincronizza per aggiornare.'));
+        });
+    } else {
+      reject(new Error('Nessun token disponibile. Accedi a Google.'));
+    }
   });
 }
 
@@ -237,7 +280,14 @@ function driveFetch(url, options) {
   options.headers = options.headers || {};
   options.headers['Authorization'] = 'Bearer ' + googleAccessToken;
   if (typeof options.keepalive === 'undefined') options.keepalive = true;
-  return fetch(url, options);
+  return fetch(url, options).then(function (res) {
+    if (!res.ok) {
+      var err = new Error('HTTP ' + res.status + ' ' + res.statusText);
+      err.status = res.status;
+      throw err;
+    }
+    return res;
+  });
 }
 
 function findDriveFile() {
@@ -445,6 +495,7 @@ function performStartupSync() {
     updateSyncStatus('Sincronizzato ✓', '');
   }).catch(function(err) {
     console.error('Startup sync error:', err);
+    updateSyncStatus('Errore sync iniziale', 'error');
   }).finally(function () { isSyncing = false; });
 }
 
@@ -478,7 +529,8 @@ function syncWithDrive(silent) {
     }
   }).catch(function(err) {
     console.error('Sync error:', err);
-    if (!silent) updateSyncStatus('Errore di sync', 'error');
+    var errMsg = err && err.message ? err.message : 'Errore di sync';
+    if (!silent) updateSyncStatus(errMsg, 'error');
   }).finally(function () { isSyncing = false; });
 }
 
@@ -507,7 +559,19 @@ function scheduleFastSync() {
         localStorage.setItem('onpointLastSync', now());
         if (!hasPendingChanges) updateSyncStatus('Sincronizzato ✓', '');
       })
-      .catch(function(err) { updateSyncStatus('Errore di salvataggio', 'error'); })
+      .catch(function(err) {
+        console.error('Fast sync error:', err);
+        var isAuthError = (err && err.status && (err.status === 401 || err.status === 403));
+        if (isAuthError) {
+          ensureToken().then(function() {
+            scheduleFastSync();
+          }).catch(function() {
+            updateSyncStatus('Sessione scaduta', 'error');
+          });
+          return;
+        }
+        updateSyncStatus('Errore di salvataggio', 'error');
+      })
       .finally(function() {
         isSyncing = false;
         if (hasPendingChanges) scheduleFastSync();
@@ -534,4 +598,5 @@ document.addEventListener('visibilitychange', function () {
   }
 });
 
-setTimeout(initGoogleAuth, 300);
+// Initialize immediately — no delay
+initGoogleAuth();
