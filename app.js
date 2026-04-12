@@ -177,12 +177,14 @@ function saveState() {
                        tasks.willdo.find(function(t) { return t.id === id; });
     var oldText = existingTask ? existingTask.text : '';
     var oldPriority = existingTask ? existingTask.priority : false;
-    var changed = !existingTask || oldText !== textEl.textContent || oldPriority !== itemEl.classList.contains('priority');
+    var oldOrderIndex = existingTask ? existingTask.orderIndex : -1;
+    var changed = !existingTask || oldText !== textEl.textContent || oldPriority !== itemEl.classList.contains('priority') || oldOrderIndex !== i;
     newTodo.push({
       id: id,
       text: textEl.textContent,
       priority: itemEl.classList.contains('priority'),
       listType: 'todo',
+      orderIndex: i,
       updatedAt: changed ? new Date().toISOString() : (existingTask && existingTask.updatedAt ? existingTask.updatedAt : new Date().toISOString())
     });
   }
@@ -200,12 +202,14 @@ function saveState() {
                         tasks.todo.find(function(t) { return t.id === id; });
     var oldText2 = existingTask2 ? existingTask2.text : '';
     var oldPriority2 = existingTask2 ? existingTask2.priority : false;
-    var changed2 = !existingTask2 || oldText2 !== textEl.textContent || oldPriority2 !== itemEl.classList.contains('priority');
+    var oldOrderIndex2 = existingTask2 ? existingTask2.orderIndex : -1;
+    var changed2 = !existingTask2 || oldText2 !== textEl.textContent || oldPriority2 !== itemEl.classList.contains('priority') || oldOrderIndex2 !== i;
     newWilldo.push({
       id: id,
       text: textEl.textContent,
       priority: itemEl.classList.contains('priority'),
       listType: 'willdo',
+      orderIndex: i,
       updatedAt: changed2 ? new Date().toISOString() : (existingTask2 && existingTask2.updatedAt ? existingTask2.updatedAt : new Date().toISOString())
     });
   }
