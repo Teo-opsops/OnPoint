@@ -1,4 +1,4 @@
-var CACHE_NAME = 'onpoint-cache-v3';
+var CACHE_NAME = 'onpoint-cache-v4'; // v4: skip external URLs
 var urlsToCache = [
   './',
   './index.html',
@@ -38,8 +38,14 @@ self.addEventListener('activate', function(event) {
 });
 
 // Fetch event: Network-First strategy with dynamic cache update
+// CRITICAL: Only handle same-origin requests. External URLs (Google APIs,
+// fonts, CDNs) must NOT be intercepted — the Service Worker re-issuing
+// cross-origin requests with Authorization headers causes errors.
 self.addEventListener('fetch', function(event) {
   if (event.request.method !== 'GET') return;
+
+  // Skip all external (cross-origin) requests — let them go through normally
+  if (!event.request.url.startsWith(self.location.origin)) return;
 
   event.respondWith(
     // Bypassa la cache HTTP del browser per essere certi di avere l'ultima versione dal server

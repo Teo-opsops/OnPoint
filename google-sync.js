@@ -4,6 +4,15 @@
 //  timestamps, mirroring Notes' approach exactly.
 // ══════════════════════════════════════════════════════════
 
+// ── Iframe OAuth Interceptor ──
+// Intercetta l'autenticazione silenziosa via iframe per evitare il caricamento completo dell'app
+if (window.location.hash.indexOf('access_token=') !== -1 || window.location.hash.indexOf('error=') !== -1) {
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'GOOGLE_SILENT_AUTH', hash: window.location.hash }, '*');
+    throw new Error('Stop iframe execution for silent auth');
+  }
+}
+
 var GOOGLE_CLIENT_ID = '662885517517-vub0f92dpv1765ckf02nn3ubpgqtpa25.apps.googleusercontent.com';
 var DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 var DRIVE_FILE_NAME = 'onpoint_app_data.json';
@@ -112,26 +121,61 @@ function requestTokenSilently() {
       return;
     }
 
-    // Timeout: if nothing comes back within 15s, give up
+    var iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    var stateCode = 'sync_' + Math.random().toString(36).substring(2);
+    
+    var redirectUri = window.location.origin + window.location.pathname;
+    var authUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
+      '?client_id=' + encodeURIComponent(GOOGLE_CLIENT_ID) +
+      '&redirect_uri=' + encodeURIComponent(redirectUri) +
+      '&response_type=token' +
+      '&scope=' + encodeURIComponent(DRIVE_SCOPE + ' https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email') +
+      '&prompt=none' +
+      '&login_hint=' + encodeURIComponent(googleUser ? googleUser.email : '') +
+      '&state=' + encodeURIComponent(stateCode);
+
     _pendingTokenRequest.timeout = setTimeout(function () {
       if (_pendingTokenRequest) {
+        window.removeEventListener('message', messageListener);
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
         var rej = _pendingTokenRequest.reject;
         _pendingTokenRequest = null;
-        rej(new Error('Token request timeout'));
+        rej(new Error('Timeout rinnovo token invisibile'));
       }
-    }, 15000);
+    }, 10000);
 
-    try {
-      tokenClient.requestAccessToken({
-        prompt: '',
-        login_hint: googleUser ? googleUser.email : ''
-      });
-      logSyncEvent('Richiesta token a Google...', 'info');
-    } catch (err) {
-      clearTimeout(_pendingTokenRequest.timeout);
-      _pendingTokenRequest = null;
-      reject(err);
-    }
+    var messageListener = function(event) {
+      if (event.data && event.data.type === 'GOOGLE_SILENT_AUTH') {
+        if (_pendingTokenRequest) {
+          clearTimeout(_pendingTokenRequest.timeout);
+          window.removeEventListener('message', messageListener);
+          if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+          
+          var hash = event.data.hash;
+          var params = new URLSearchParams(hash.substring(1));
+          
+          var res = _pendingTokenRequest.resolve;
+          var rej = _pendingTokenRequest.reject;
+          _pendingTokenRequest = null;
+
+          if (params.has('access_token')) {
+            var token = params.get('access_token');
+            var expiresIn = parseInt(params.get('expires_in') || '3600', 10);
+            googleAccessToken = token;
+            try { saveTokenToStorage(token, expiresIn); } catch(e){}
+            try { schedulePredictiveTokenRefresh(expiresIn); } catch(e){}
+            res(token);
+          } else {
+            rej(new Error(params.get('error') || 'Silent auth fallita'));
+          }
+        }
+      }
+    };
+
+    window.addEventListener('message', messageListener);
+    iframe.src = authUrl;
+    document.body.appendChild(iframe);
   });
   _pendingTokenRequest.promise = p;
   return p;
