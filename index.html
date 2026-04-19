@@ -124,9 +124,9 @@
         </button>
       </div>
 
-      <!-- Cloud Sync -->
-      <div class="settings-card" id="profile-card">
-        <div class="settings-card-title">Cloud Sync</div>
+      <!-- Profile & Sync -->
+      <div class="settings-section-title">Cloud Sync</div>
+      <div class="settings-card" id="profile-card" style="padding: 1rem;">
         <!-- Signed out state -->
         <div id="google-signed-out">
           <button id="google-signin-btn" class="google-btn-minimal">
@@ -161,21 +161,65 @@
         </div>
       </div>
 
+      <!-- Aspetto -->
+      <div class="settings-section-title">Aspetto</div>
       <div class="settings-card">
-        <div class="settings-card-title">Aspetto</div>
         <div class="settings-row">
-          <span>Tema Colore</span>
-          <div class="theme-selector" id="theme-picker">
-            <div class="theme-dot" data-theme="cyan" style="background:#38bdf8"></div>
-            <div class="theme-dot" data-theme="emerald" style="background:#34d399"></div>
-            <div class="theme-dot" data-theme="violet" style="background:#a78bfa"></div>
-            <div class="theme-dot" data-theme="coral" style="background:#fb7185"></div>
-            <div class="theme-dot" data-theme="gold" style="background:#fbbf24"></div>
-            <div class="theme-dot active" data-theme="white" style="background:#ffffff"></div>
+          <div class="settings-row-left">
+            <div class="settings-row-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+            </div>
+            <div class="settings-row-label">Tema</div>
+          </div>
+          <div class="theme-selector" id="theme-selector">
+            <button class="theme-option active" data-theme="auto">Auto</button>
+            <button class="theme-option" data-theme="dark">Scuro</button>
+            <button class="theme-option" data-theme="light">Chiaro</button>
           </div>
         </div>
+      </div>
+
+      <div class="settings-card">
         <div class="settings-row">
-          <span>AMOLED True Black</span>
+          <div class="settings-row-left">
+            <div class="settings-row-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+              </svg>
+            </div>
+            <div class="settings-row-label">Colore</div>
+          </div>
+          <div class="color-swatches" id="theme-picker">
+            <div class="color-swatch" data-theme="cyan" style="background:#38bdf8" title="Cyan"></div>
+            <div class="color-swatch" data-theme="emerald" style="background:#34d399" title="Smeraldo"></div>
+            <div class="color-swatch" data-theme="violet" style="background:#a78bfa" title="Viola"></div>
+            <div class="color-swatch" data-theme="coral" style="background:#fb7185" title="Corallo"></div>
+            <div class="color-swatch" data-theme="gold" style="background:#fbbf24" title="Oro"></div>
+            <div class="color-swatch active" data-theme="white" style="background:#ffffff; border: 1px solid var(--border)" title="Bianco"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <div class="settings-row-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            </div>
+            <div class="settings-row-label">AMOLED True Black</div>
+          </div>
           <label class="toggle-switch">
             <input type="checkbox" id="amoled-toggle" checked>
             <span class="slider"></span>
@@ -183,12 +227,39 @@
         </div>
       </div>
 
+      <div class="settings-section-title">Dati</div>
       <div class="settings-card">
-        <div class="settings-card-title">Dati</div>
-        <button id="settings-export" class="settings-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Esporta</button>
-        <label for="import-file-input" class="settings-btn" style="cursor:pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>Importa</label>
+        <button id="settings-export" class="settings-row" style="background:transparent; border:none; width:100%; cursor:pointer; font-family:inherit; gap: 0.75rem;">
+          <div class="settings-row-left">
+            <div class="settings-row-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </div>
+            <div class="settings-row-label">Esporta dati e backup</div>
+          </div>
+        </button>
+      </div>
+
+      <div class="settings-card">
+        <label for="import-file-input" class="settings-row" style="background:transparent; border:none; width:100%; cursor:pointer; font-family:inherit; margin:0; gap: 0.75rem; justify-content: flex-start;">
+          <div class="settings-row-left">
+            <div class="settings-row-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </div>
+            <div class="settings-row-label">Importa dati</div>
+          </div>
+        </label>
         <input type="file" id="import-file-input" accept=".json" style="display:none">
-        <button id="settings-clear" class="settings-btn danger">Cancella tutti i dati</button>
+      </div>
+
+      <div class="settings-card">
+        <button id="settings-clear" class="settings-row" style="background:transparent; border:none; width:100%; cursor:pointer; font-family:inherit; gap: 0.75rem; color: var(--danger);">
+          <div class="settings-row-left">
+            <div class="settings-row-icon" style="color: var(--danger) !important;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </div>
+            <div class="settings-row-label" style="color: var(--danger);">Cancella tutti i dati</div>
+          </div>
+        </button>
       </div>
     </div>
   </div>

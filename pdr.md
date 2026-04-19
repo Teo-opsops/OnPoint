@@ -64,5 +64,10 @@ L'app è divisa verticalmente in due sezioni principali:
 - **Recupero Automatico File 404 in writeDriveFile**: Corretto bug in caso di eliminazione file remoto in runtime. I Fast Sync in PATCH loggavano errore 404 perenne. Ora resetta il cache ID obsoleto e torna in fallback automatico alla creazione (POST).
 - **Auto-Recovery Refresh Token Preventivo**: Il timer auto-rinnovo (`schedulePredictiveTokenRefresh`), se falliva offline, si disinnescava. Ora traccia l'errore e ri-tenta il check ogni 60s per impedire il crollo sessione in background.
 
+### Ultimi Aggiornamenti
+- **Aesthetic Impostazioni "Notes-Style"**: Il layout e il design della sezione impostazioni (Cloud Sync, Aspetto, Sistema, e Gestione Dati) sono stati resi visivamente identici all'app "Notes", inclusi i raggruppamenti in card separate per logica funzionale, icone all'interno delle righe e l'uso dello stesso design (padding, gap, e focus styles).
+- **Tema Chiaro/Scuro (Light/Dark Mode)**: È stato aggiunto ed implementato funzionalmente il toggle del tema (Auto/Scuro/Chiaro) presente in Notes, pur mantenendo anche il selettore del colore di accento (Color Swatches) e il toggle AMOLED specifici di OnPoint.
+
 ---
 *Nota: Secondo la regola globale stabilita, questo file (pdr.md) verrà aggiornato in automatico con le nuove modifiche richieste alla fine di ogni iterazione.*
+

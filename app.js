@@ -116,19 +116,51 @@ function loadData() {
   });
 }
 
-// === THEME & AMOLED ===
-var savedTheme = localStorage.getItem('onPointTheme') || 'white';
+// === THEME (Color & Light/Dark) & AMOLED ===
+var savedColorTheme = localStorage.getItem('onPointColorTheme') || 'white';
+var savedLightMode = localStorage.getItem('onPointLightMode') || 'auto';
 var savedAmoled = localStorage.getItem('onPointAmoled');
 if (savedAmoled === null) savedAmoled = 'true';
 
-function applyTheme(theme) {
-  document.body.className = document.body.className.replace(/theme-\w+/g, '').trim();
-  document.body.classList.add('theme-' + theme);
-  savedTheme = theme;
-  localStorage.setItem('onPointTheme', theme);
-  var dots = document.querySelectorAll('.theme-dot');
-  dots.forEach(function (d) { d.classList.toggle('active', d.dataset.theme === theme); });
+// Migrate legacy 'onPointTheme'
+var legacyTheme = localStorage.getItem('onPointTheme');
+if (legacyTheme) {
+  savedColorTheme = legacyTheme;
+  localStorage.removeItem('onPointTheme');
+  localStorage.setItem('onPointColorTheme', savedColorTheme);
 }
+
+function applyColorTheme(color) {
+  var classes = document.body.className.split(' ').filter(c => !c.startsWith('theme-'));
+  classes.push('theme-' + color);
+  document.body.className = classes.join(' ').trim();
+  savedColorTheme = color;
+  localStorage.setItem('onPointColorTheme', color);
+  var swatches = document.querySelectorAll('.color-swatch');
+  swatches.forEach(function (sw) { sw.classList.toggle('active', sw.dataset.theme === color); });
+}
+
+function applyLightMode(mode) {
+  savedLightMode = mode;
+  localStorage.setItem('onPointLightMode', mode);
+  
+  var options = document.querySelectorAll('.theme-option');
+  options.forEach(function (opt) { opt.classList.toggle('active', opt.dataset.theme === mode); });
+
+  if (mode === 'auto') {
+    var prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+    document.documentElement.setAttribute('data-theme', prefersLight ? 'light' : 'dark');
+  } else {
+    document.documentElement.setAttribute('data-theme', mode);
+  }
+}
+
+// Watch for system theme changes if set to auto
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function(e) {
+  if (savedLightMode === 'auto') {
+    document.documentElement.setAttribute('data-theme', e.matches ? 'light' : 'dark');
+  }
+});
 
 function applyAmoled(on) {
   if (on) {
@@ -141,21 +173,31 @@ function applyAmoled(on) {
   if (toggle) toggle.checked = on;
 }
 
-applyTheme(savedTheme);
+applyColorTheme(savedColorTheme);
+applyLightMode(savedLightMode);
 applyAmoled(savedAmoled === 'true');
 
 // Theme picker clicks
 document.addEventListener('DOMContentLoaded', function () {
   var picker = document.getElementById('theme-picker');
   if (picker) picker.addEventListener('click', function (e) {
-    var dot = e.target.closest('.theme-dot');
-    if (dot) applyTheme(dot.dataset.theme);
+    var sw = e.target.closest('.color-swatch');
+    if (sw) applyColorTheme(sw.dataset.theme);
   });
+  
+  var themeSel = document.getElementById('theme-selector');
+  if (themeSel) themeSel.addEventListener('click', function(e) {
+    var opt = e.target.closest('.theme-option');
+    if (opt) applyLightMode(opt.dataset.theme);
+  });
+
   var aToggle = document.getElementById('amoled-toggle');
   if (aToggle) aToggle.addEventListener('change', function () {
     applyAmoled(this.checked);
   });
-  applyTheme(savedTheme);
+  
+  applyColorTheme(savedColorTheme);
+  applyLightMode(savedLightMode);
 });
 
 function saveState() {
