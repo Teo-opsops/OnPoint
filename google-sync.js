@@ -375,7 +375,6 @@ function driveFetch(url, options, _isRetry) {
   options = options || {};
   options.headers = options.headers || {};
   options.headers['Authorization'] = 'Bearer ' + googleAccessToken;
-  if (typeof options.keepalive === 'undefined') options.keepalive = true;
   return fetch(url, options).then(function (res) {
     if (!res.ok) {
       var err = new Error('HTTP ' + res.status + ' ' + res.statusText);
