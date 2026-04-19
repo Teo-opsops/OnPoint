@@ -1,7 +1,7 @@
 {
-  "name": "OnPoint",
-  "short_name": "OnPoint",
-  "description": "La tua To-Do / Will-Do List personale ultraveolce e offline.",
+  "name": "Notes",
+  "short_name": "Notes",
+  "description": "App minimale per creare e organizzare le tue note.",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#000000",
@@ -9,7 +9,7 @@
   "icons": [
     {
       "src": "icon.png",
-      "sizes": "512x512",
+      "sizes": "192x192 512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
